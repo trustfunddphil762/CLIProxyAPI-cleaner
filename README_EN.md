@@ -26,6 +26,7 @@ The repository homepage defaults to Chinese. If you prefer Chinese, use the link
 - Cleaner / web log viewing
 - Recent report summaries
 - Rate-limited login, host allowlist, secure cookie settings
+- Docker / Docker Compose deployment support
 
 ## Notes on examples
 
@@ -160,6 +161,88 @@ If unit files changed, also run:
 ```bash
 systemctl daemon-reload
 ```
+
+## Docker / Docker Compose deployment
+
+If you do not want to manage systemd manually, the repository now includes a ready-to-run Docker setup:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker/supervisord.conf`
+- `docker/entrypoint.sh`
+- `docker/run_cleaner.sh`
+
+In Docker mode:
+
+- **web and cleaner run in the same container**
+- **supervisor** manages both processes
+- dashboard start / stop / restart actions automatically use `supervisorctl` instead of `systemctl`
+- config, logs, reports, and backups are persisted under `./docker-data`
+
+### Quick start
+
+```bash
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
+docker compose up -d --build
+```
+
+On first boot, a default `./docker-data/web_config.json` will be created automatically.
+You should edit at least these values:
+
+- `base_url`
+- `management_key`
+- `allowed_hosts`
+- `password_salt`
+- `password_hash`
+
+Then restart the container or just start the cleaner from the dashboard.
+
+### Common commands
+
+```bash
+# start
+docker compose up -d
+
+# logs
+docker compose logs -f
+
+# stop
+docker compose down
+
+# rebuild after updates
+docker compose up -d --build
+```
+
+### Default data directory
+
+Compose persists these files into `./docker-data`:
+
+- `web_config.json`
+- `logs/`
+- `reports/`
+- `backups/`
+- `CLIProxyAPI-cleaner-state.json`
+
+### Access URL
+
+By default:
+
+```text
+http://your-server-ip:28717/CLIProxyAPI-cleaner/
+```
+
+### Notes for Docker mode
+
+1. For plain local HTTP access, `docker-compose.yml` defaults to `CLIPROXY_COOKIE_SECURE=false`, otherwise the login cookie would not work on non-HTTPS connections.
+2. If you put it behind HTTPS, you should change it back to:
+
+```yaml
+CLIPROXY_COOKIE_SECURE: "true"
+```
+
+3. `CLIPROXY_ALLOWED_HOSTS` defaults to `*` for easier first boot; for real deployment, tighten it to your own hostnames or IPs.
+4. The cleaner process checks whether `web_config.json` already contains real `base_url / management_key` values. If the config is still placeholder-only, it waits instead of running cleanup logic.
 
 ## Security notes
 

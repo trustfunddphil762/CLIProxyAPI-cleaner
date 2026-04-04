@@ -26,6 +26,7 @@
 - 查看 cleaner / web 日志
 - 查看最近报告（默认前 5 个）
 - 登录限流、Host 白名单、Cookie 安全属性
+- 支持 Docker / Docker Compose 部署
 
 ## 示例说明
 
@@ -54,6 +55,12 @@
 │   ├── index.html
 │   ├── app.js
 │   └── styles.css
+├── Dockerfile
+├── docker-compose.yml
+├── docker/
+│   ├── entrypoint.sh
+│   ├── run_cleaner.sh
+│   └── supervisord.conf
 ├── README.md
 └── README_EN.md
 ```
@@ -234,6 +241,88 @@ systemctl restart CLIProxyAPI-cleaner.service
 ```bash
 systemctl daemon-reload
 ```
+
+## Docker / Docker Compose 部署
+
+如果你不想自己配 systemd，也可以直接用 Docker 跑。这个仓库现在已经内置一套可运行的 Docker 方案，附带：
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker/supervisord.conf`
+- `docker/entrypoint.sh`
+- `docker/run_cleaner.sh`
+
+容器方案里：
+
+- **web 和 cleaner 在同一个容器里**
+- 由 **supervisor** 负责进程托管
+- Web 控制台里的“启动 / 停止 / 重启 cleaner”在 Docker 模式下会自动改走 `supervisorctl`
+- 默认把配置、日志、报告、备份都放到挂载目录 `./docker-data`
+
+### 快速开始
+
+```bash
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
+docker compose up -d --build
+```
+
+首次启动后，会自动在 `./docker-data/web_config.json` 生成一份配置模板。
+你只需要把里面这些值改成你自己的：
+
+- `base_url`
+- `management_key`
+- `allowed_hosts`
+- `password_salt`
+- `password_hash`
+
+改完后重新拉起容器，或者在页面里直接点启动 cleaner 即可。
+
+### 常用命令
+
+```bash
+# 启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止
+docker compose down
+
+# 升级后重建
+docker compose up -d --build
+```
+
+### 默认数据目录
+
+Compose 默认把这些东西持久化到 `./docker-data`：
+
+- `web_config.json`
+- `logs/`
+- `reports/`
+- `backups/`
+- `CLIProxyAPI-cleaner-state.json`
+
+### 访问地址
+
+默认端口映射是：
+
+```text
+http://你的服务器IP:28717/CLIProxyAPI-cleaner/
+```
+
+### Docker 模式注意事项
+
+1. **本地直连 HTTP** 时，`docker-compose.yml` 默认把 `CLIPROXY_COOKIE_SECURE=false`，这样直接映射端口也能登录。
+2. 如果你前面再套了 HTTPS 反代，建议把它改回：
+
+```yaml
+CLIPROXY_COOKIE_SECURE: "true"
+```
+
+3. `CLIPROXY_ALLOWED_HOSTS` 默认是 `*`，为了方便首次启动；正式使用时建议收紧成你自己的域名或 IP。
+4. cleaner 容器启动后会先检查 `web_config.json` 是否已经填了真实的 `base_url / management_key`；如果还是示例值，会先等待，不会真的跑清理逻辑。
 
 ---
 

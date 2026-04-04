@@ -1,0 +1,20 @@
+services:
+  cliproxyapi-cleaner:
+    build: .
+    container_name: cliproxyapi-cleaner
+    restart: unless-stopped
+    ports:
+      - "28717:28717"
+    environment:
+      TZ: Asia/Shanghai
+      CLIPROXY_ALLOWED_HOSTS: "*"
+      CLIPROXY_COOKIE_SECURE: "false"
+      CLIPROXY_CONFIG_PATH: "/data/web_config.json"
+      CLIPROXY_STATE_FILE: "/data/CLIProxyAPI-cleaner-state.json"
+      CLIPROXY_REPORT_DIR: "/data/reports/cliproxyapi-auth-cleaner"
+      CLIPROXY_REPORT_ROOT: "/data/reports/cliproxyapi-auth-cleaner"
+      CLIPROXY_BACKUP_ROOT: "/data/backups/cliproxyapi-auth-cleaner"
+      CLIPROXY_WEB_LOG_PATH: "/data/logs/web.log"
+      CLIPROXY_CLEANER_LOG_PATH: "/data/logs/CLIProxyAPI-cleaner.log"
+    volumes:
+      - ./docker-data:/data

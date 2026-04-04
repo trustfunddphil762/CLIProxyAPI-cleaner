@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
+import shlex
 import subprocess
 import time
 from collections import deque
@@ -22,6 +24,10 @@ from common import (
     PASSWORD_PBKDF2_ITERATIONS,
     CLEANER_SERVICE,
     WEB_SERVICE,
+    CONTROL_MODE,
+    SUPERVISORCTL_BIN,
+    SUPERVISOR_CLEANER_NAME,
+    SUPERVISOR_WEB_NAME,
     build_cleaner_command,
     ensure_app_dirs,
     load_config,
@@ -39,6 +45,7 @@ LOCKOUT_SECONDS = 15 * 60
 
 FAILED_LOGIN = deque()
 SESSIONS: dict[str, dict] = {}
+COOKIE_SECURE = str(os.environ.get('CLIPROXY_COOKIE_SECURE', 'true')).strip().lower() not in ('0', 'false', 'no', 'off', '')
 
 
 class AppError(Exception):
@@ -203,6 +210,18 @@ def systemctl(*args: str) -> tuple[int, str]:
     return run_command(['systemctl', *args])
 
 
+def supervisorctl(*args: str) -> tuple[int, str]:
+    return run_command([SUPERVISORCTL_BIN, *args])
+
+
+def control_target_name(target: str) -> str:
+    if target == 'cleaner':
+        return SUPERVISOR_CLEANER_NAME if CONTROL_MODE == 'supervisor' else CLEANER_SERVICE
+    if target == 'web':
+        return SUPERVISOR_WEB_NAME if CONTROL_MODE == 'supervisor' else WEB_SERVICE
+    raise AppError('bad_target', '不支持的服务目标')
+
+
 def read_tail(path: Path, limit_lines: int = LOG_TAIL_LINES) -> str:
     if not path.exists():
         return ''
@@ -262,18 +281,32 @@ def read_report_file(name: str) -> dict:
     }
 
 
-def cleaner_service_status() -> dict:
-    code, output = systemctl('is-active', CLEANER_SERVICE)
+def systemctl_status(service: str, *, lines: int) -> dict:
+    code, output = systemctl('is-active', service)
     active = output.strip() or ('active' if code == 0 else 'unknown')
-    code2, output2 = systemctl('status', CLEANER_SERVICE, '--no-pager', '--lines=40')
+    code2, output2 = systemctl('status', service, '--no-pager', f'--lines={lines}')
     return {'active': active, 'status_text': output2.strip(), 'ok': code2 == 0}
+
+
+def supervisor_status(name: str) -> dict:
+    code, output = supervisorctl('status', name)
+    line = (output.splitlines() or [''])[0]
+    parts = line.split(None, 2)
+    raw_state = parts[1].lower() if len(parts) > 1 else 'unknown'
+    active = 'active' if raw_state == 'running' else (raw_state or 'unknown')
+    return {'active': active, 'status_text': output.strip(), 'ok': raw_state == 'running'}
+
+
+def cleaner_service_status() -> dict:
+    if CONTROL_MODE == 'supervisor':
+        return supervisor_status(control_target_name('cleaner'))
+    return systemctl_status(control_target_name('cleaner'), lines=40)
 
 
 def web_service_status() -> dict:
-    code, output = systemctl('is-active', WEB_SERVICE)
-    active = output.strip() or ('active' if code == 0 else 'unknown')
-    code2, output2 = systemctl('status', WEB_SERVICE, '--no-pager', '--lines=30')
-    return {'active': active, 'status_text': output2.strip(), 'ok': code2 == 0}
+    if CONTROL_MODE == 'supervisor':
+        return supervisor_status(control_target_name('web'))
+    return systemctl_status(control_target_name('web'), lines=30)
 
 
 def build_status_payload() -> dict:
@@ -293,6 +326,7 @@ def build_status_payload() -> dict:
         'web_log_tail': read_tail(WEB_LOG_PATH),
         'reports': list_reports(),
         'command_preview': preview,
+        'control_mode': CONTROL_MODE,
         'auto_refresh_seconds': 8,
     }
 
@@ -315,7 +349,7 @@ def handle_login(environ, start_response):
     cookie = cookies.SimpleCookie()
     cookie[COOKIE_NAME] = token
     cookie[COOKIE_NAME]['httponly'] = True
-    cookie[COOKIE_NAME]['secure'] = True
+    cookie[COOKIE_NAME]['secure'] = COOKIE_SECURE
     cookie[COOKIE_NAME]['samesite'] = 'Strict'
     cookie[COOKIE_NAME]['path'] = COOKIE_PATH
     cookie[COOKIE_NAME]['max-age'] = str(SESSION_TTL_SECONDS)
@@ -329,7 +363,7 @@ def handle_logout(environ, start_response):
     cookie = cookies.SimpleCookie()
     cookie[COOKIE_NAME] = ''
     cookie[COOKIE_NAME]['httponly'] = True
-    cookie[COOKIE_NAME]['secure'] = True
+    cookie[COOKIE_NAME]['secure'] = COOKIE_SECURE
     cookie[COOKIE_NAME]['samesite'] = 'Strict'
     cookie[COOKIE_NAME]['path'] = COOKIE_PATH
     cookie[COOKIE_NAME]['max-age'] = '0'
@@ -366,21 +400,20 @@ def handle_service_action(environ, start_response, action: str):
         raise AppError('method_not_allowed', '方法不允许', '405 Method Not Allowed')
     body = parse_json_body(environ)
     target = body.get('target', 'cleaner')
-    if target == 'cleaner':
-        service = CLEANER_SERVICE
-    elif target == 'web':
-        service = WEB_SERVICE
-    else:
-        raise AppError('bad_target', '不支持的服务目标')
+    service = control_target_name(target)
 
-    if action == 'start':
-        code, output = systemctl('start', service)
-    elif action == 'stop':
-        code, output = systemctl('stop', service)
-    elif action == 'restart':
-        code, output = systemctl('restart', service)
-    else:
+    if action not in ('start', 'stop', 'restart'):
         raise AppError('bad_action', '不支持的动作')
+
+    if CONTROL_MODE == 'supervisor':
+        if target == 'web' and action == 'restart':
+            cmd = f"sleep 1; {shlex.quote(SUPERVISORCTL_BIN)} restart {shlex.quote(service)} >/tmp/cliproxyapi-web-restart.log 2>&1"
+            subprocess.Popen(['sh', '-lc', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            code, output = 0, 'web restart scheduled'
+        else:
+            code, output = supervisorctl(action, service)
+    else:
+        code, output = systemctl(action, service)
 
     status_payload = build_status_payload()
     return json_response(start_response, {
@@ -410,7 +443,8 @@ def application(environ, start_response):
     path = environ.get('PATH_INFO', '') or '/'
     host = (environ.get('HTTP_HOST') or '').split(':')[0].lower()
     config = load_config()
-    if host and host not in config.get('allowed_hosts', []):
+    allowed_hosts = config.get('allowed_hosts', []) or []
+    if host and '*' not in allowed_hosts and host not in allowed_hosts:
         return json_response(start_response, {'ok': False, 'error': 'forbidden_host'}, status='403 Forbidden')
 
     try:

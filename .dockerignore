@@ -1,0 +1,10 @@
+.git
+__pycache__/
+*.pyc
+*.pyo
+*.tmp
+docker-data/
+web_config.json
+backups/
+reports/
+*.log

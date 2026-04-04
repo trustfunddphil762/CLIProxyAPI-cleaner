@@ -46,6 +46,9 @@ def run_id():
 
 
 def script_dir():
+    override = os.environ.get('CLIPROXY_SCRIPT_DIR')
+    if override:
+        return Path(override).expanduser().resolve()
     return Path(__file__).resolve().parent
 
 
@@ -1151,8 +1154,10 @@ def main():
     args.revival_wait_days = max(0, int(args.revival_wait_days))
     args.revival_probe_interval_hours = max(1, int(args.revival_probe_interval_hours))
     args.state_path = Path(args.state_file).expanduser().resolve()
-    args.backup_root = script_dir() / 'backups' / 'cliproxyapi-auth-cleaner'
-    args.report_root = script_dir() / 'reports' / 'cliproxyapi-auth-cleaner'
+    backup_root_env = os.environ.get('CLIPROXY_BACKUP_ROOT')
+    report_root_env = os.environ.get('CLIPROXY_REPORT_ROOT')
+    args.backup_root = Path(backup_root_env).expanduser().resolve() if backup_root_env else (script_dir() / 'backups' / 'cliproxyapi-auth-cleaner')
+    args.report_root = Path(report_root_env).expanduser().resolve() if report_root_env else (script_dir() / 'reports' / 'cliproxyapi-auth-cleaner')
 
     if not args.management_key.strip():
         print('❌ 缺少 management key：请先设置 CLIPROXY_MANAGEMENT_KEY', file=sys.stderr)

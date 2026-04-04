@@ -8,14 +8,18 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-APP_DIR = Path(__file__).resolve().parent
+APP_DIR = Path(os.environ.get('CLIPROXY_APP_DIR', str(Path(__file__).resolve().parent))).expanduser().resolve()
 STATIC_DIR = APP_DIR / 'static'
-CONFIG_PATH = APP_DIR / 'web_config.json'
-CLEANER_LOG_PATH = Path('/root/CLIProxyAPI-cleaner.log')
-WEB_LOG_PATH = APP_DIR / 'web.log'
-REPORT_DIR = Path('/root/reports/cliproxyapi-auth-cleaner')
+CONFIG_PATH = Path(os.environ.get('CLIPROXY_CONFIG_PATH', str(APP_DIR / 'web_config.json'))).expanduser()
+CLEANER_LOG_PATH = Path(os.environ.get('CLIPROXY_CLEANER_LOG_PATH', '/root/CLIProxyAPI-cleaner.log')).expanduser()
+WEB_LOG_PATH = Path(os.environ.get('CLIPROXY_WEB_LOG_PATH', str(APP_DIR / 'web.log'))).expanduser()
+REPORT_DIR = Path(os.environ.get('CLIPROXY_REPORT_DIR', '/root/reports/cliproxyapi-auth-cleaner')).expanduser()
 CLEANER_SERVICE = 'CLIProxyAPI-cleaner.service'
 WEB_SERVICE = 'CLIProxyAPI-cleaner-web.service'
+CONTROL_MODE = os.environ.get('CLIPROXY_CONTROL_MODE', 'systemctl').strip().lower() or 'systemctl'
+SUPERVISORCTL_BIN = os.environ.get('CLIPROXY_SUPERVISORCTL_BIN', 'supervisorctl').strip() or 'supervisorctl'
+SUPERVISOR_CLEANER_NAME = os.environ.get('CLIPROXY_SUPERVISOR_CLEANER_NAME', 'cleaner').strip() or 'cleaner'
+SUPERVISOR_WEB_NAME = os.environ.get('CLIPROXY_SUPERVISOR_WEB_NAME', 'web').strip() or 'web'
 COOKIE_NAME = 'pcw_session'
 COOKIE_PATH = '/CLIProxyAPI-cleaner/'
 
@@ -64,6 +68,10 @@ _CONTROL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 def ensure_app_dirs() -> None:
     APP_DIR.mkdir(parents=True, exist_ok=True)
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    WEB_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    CLEANER_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def deep_copy_default_config() -> dict:
@@ -97,6 +105,7 @@ def save_config(config: dict) -> None:
     config.pop('cpa_cleaner_path', None)
     config.pop('proxy_cleaner_path', None)
     config['allowed_hosts'] = normalize_allowed_hosts(config.get('allowed_hosts'))
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_PATH.with_suffix('.json.tmp')
     tmp.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     tmp.replace(CONFIG_PATH)
