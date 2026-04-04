@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Proxy Cleaner 控制台</title>
+  <link rel="stylesheet" href="/proxy-cleaner/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="ambient ambient-c"></div>
+
+  <div class="page">
+    <header class="hero apple-card">
+      <div>
+        <div class="eyebrow">Proxy Cleaner · Dark Edition</div>
+        <h1>Proxy Cleaner 控制台</h1>
+        <p>深色苹果风版本，报告整条横幅可直接点开摘要，手机上看也更顺手。</p>
+      </div>
+      <div class="hero-actions">
+        <div class="auto-refresh-chip">
+          <span class="dot"></span>
+          <span id="autoRefreshText">自动刷新中</span>
+        </div>
+        <button id="logoutBtn" class="ghost hidden">退出登录</button>
+      </div>
+    </header>
+
+    <section id="loginCard" class="card login-card apple-card">
+      <div class="section-head compact">
+        <div>
+          <div class="eyebrow">Sign In</div>
+          <h2>安全登录</h2>
+        </div>
+      </div>
+      <p>密码在服务端校验，登录态使用安全 Cookie。</p>
+      <form id="loginForm">
+        <label>
+          控制台密码
+          <input type="password" name="password" placeholder="请输入密码" autocomplete="current-password" required>
+        </label>
+        <button type="submit">登录控制台</button>
+      </form>
+      <div id="loginMsg" class="msg"></div>
+    </section>
+
+    <main id="app" class="hidden">
+      <section class="stats-grid">
+        <article class="stat-card apple-card">
+          <div class="stat-label">Cleaner</div>
+          <div id="cleanerActive" class="stat-value">-</div>
+          <div class="stat-desc">后台主任务</div>
+        </article>
+        <article class="stat-card apple-card">
+          <div class="stat-label">Web</div>
+          <div id="webActive" class="stat-value">-</div>
+          <div class="stat-desc">控制台服务</div>
+        </article>
+        <article class="stat-card apple-card">
+          <div class="stat-label">最近报告</div>
+          <div id="reportCount" class="stat-value">0</div>
+          <div class="stat-desc">只显示前 5 个</div>
+        </article>
+        <article class="stat-card apple-card">
+          <div class="stat-label">自动刷新</div>
+          <div id="refreshIntervalText" class="stat-value">8s</div>
+          <div class="stat-desc">状态与日志同步</div>
+        </article>
+      </section>
+
+      <section class="card apple-card report-top-card">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Reports</div>
+            <h2>最近报告</h2>
+            <p class="section-subtitle">点击整条报告横幅，直接弹出摘要。</p>
+          </div>
+          <button id="refreshBtn" class="ghost">刷新</button>
+        </div>
+        <div id="reportList" class="report-list"></div>
+      </section>
+
+      <section class="grid two">
+        <div class="card apple-card">
+          <div class="section-head compact">
+            <div>
+              <div class="eyebrow">Service Control</div>
+              <h2>服务状态与控制</h2>
+            </div>
+          </div>
+          <div id="serviceStatus" class="status-list"></div>
+          <div class="button-row wrap">
+            <button data-action="start" data-target="cleaner">启动清理器</button>
+            <button data-action="restart" data-target="cleaner" class="secondary">重启清理器</button>
+            <button data-action="stop" data-target="cleaner" class="danger">停止清理器</button>
+          </div>
+          <div class="button-row wrap top-gap">
+            <button data-action="restart" data-target="web" class="secondary">重启控制台后端</button>
+            <button id="runOnceBtn" class="ghost">执行一次 dry-run</button>
+          </div>
+          <div id="actionMsg" class="msg"></div>
+        </div>
+
+        <div class="card apple-card">
+          <div class="section-head compact">
+            <div>
+              <div class="eyebrow">Command Preview</div>
+              <h2>当前命令预览</h2>
+            </div>
+          </div>
+          <pre id="commandPreview" class="code-block"></pre>
+          <p class="tip">参数保存后，systemd 启动命令会跟着变化。</p>
+        </div>
+      </section>
+
+      <section class="card apple-card">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Configuration</div>
+            <h2>运行参数</h2>
+          </div>
+        </div>
+        <form id="configForm" class="config-grid">
+          <label>
+            管理地址
+            <input name="base_url" type="url" required>
+          </label>
+          <label>
+            管理密钥（留空则保持原值）
+            <input name="management_key" type="password" placeholder="如需修改再填写">
+          </label>
+          <label>
+            控制台登录密码（可选）
+            <input name="console_password" type="password" minlength="8" placeholder="如需修改再填写，至少 8 位">
+          </label>
+          <label>
+            轮询间隔（秒）
+            <input name="interval" type="number" min="10" max="86400" required>
+          </label>
+          <label class="checkbox soft-box">
+            <input name="enable_api_call_check" type="checkbox">
+            <span>开启 /api-call 主动探测</span>
+          </label>
+          <label>
+            API Call URL
+            <input name="api_call_url" type="url" required>
+          </label>
+          <label>
+            API Call Method
+            <input name="api_call_method" type="text" maxlength="16" required>
+          </label>
+          <label>
+            ChatGPT Account ID
+            <input name="api_call_account_id" type="text" maxlength="256">
+          </label>
+          <label>
+            User-Agent
+            <input name="api_call_user_agent" type="text" maxlength="512">
+          </label>
+          <label>
+            Providers
+            <input name="api_call_providers" type="text" maxlength="256" placeholder="codex,openai,chatgpt">
+          </label>
+          <label>
+            每批最大探测数
+            <input name="api_call_max_per_run" type="number" min="1" max="50" required>
+          </label>
+          <label>
+            最小等待秒数
+            <input name="api_call_sleep_min" type="number" step="0.1" min="0" max="3600" required>
+          </label>
+          <label>
+            最大等待秒数
+            <input name="api_call_sleep_max" type="number" step="0.1" min="0" max="3600" required>
+          </label>
+          <label>
+            限额后等待几天再 refresh
+            <input name="revival_wait_days" type="number" min="0" max="365" required>
+          </label>
+          <label>
+            复活探测间隔（小时）
+            <input name="revival_probe_interval_hours" type="number" min="1" max="168" required>
+          </label>
+          <label class="full">
+            API Call Body
+            <textarea name="api_call_body" rows="5" placeholder="可留空"></textarea>
+          </label>
+          <div class="full button-row wrap">
+            <button type="submit">保存配置</button>
+            <span id="configMsg" class="msg"></span>
+          </div>
+          <p class="tip full">配置保存后，重启 cleaner 服务才会按新参数真正生效；如果修改了控制台登录密码，重启 web 服务后生效。</p>
+        </form>
+      </section>
+
+      <section class="grid two">
+        <div class="card apple-card">
+          <div class="section-head compact">
+            <div>
+              <div class="eyebrow">Cleaner Log</div>
+              <h2>清理器日志</h2>
+            </div>
+          </div>
+          <pre id="cleanerLog" class="log-box"></pre>
+        </div>
+        <div class="card apple-card">
+          <div class="section-head compact">
+            <div>
+              <div class="eyebrow">Web Log</div>
+              <h2>控制台后端日志</h2>
+            </div>
+          </div>
+          <pre id="webLog" class="log-box"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="reportModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="1"></div>
+    <div class="modal-panel apple-card summary-modal">
+      <div class="section-head compact">
+        <div>
+          <div class="eyebrow">Report Summary</div>
+          <h2 id="reportModalTitle">报告摘要</h2>
+        </div>
+        <button id="closeReportModal" class="ghost">关闭</button>
+      </div>
+      <div id="reportSummaryCards" class="summary-cards"></div>
+    </div>
+  </div>
+
+  <script src="/proxy-cleaner/app.js"></script>
+</body>
+</html>
