@@ -27,6 +27,10 @@ The repository homepage defaults to Chinese. If you prefer Chinese, use the link
 - Recent report summaries
 - Rate-limited login, host allowlist, secure cookie settings
 
+## Notes on examples
+
+In this repository, account-related examples and detection descriptions are written with **codex** as the default example. The overall handling idea is similar for other compatible providers.
+
 ## Requirements
 
 - Linux
@@ -166,7 +170,7 @@ systemctl daemon-reload
 
 ## Acknowledgements
 
-Special thanks to LinuxDo contributor [@jingtai123](https://linux.do/t/topic/1810923). This project is a further derivative / secondary development based on that script direction.
+Thanks to the **LinuxDo community** for the discussion space, and special thanks to LinuxDo contributor [@jingtai123](https://linux.do/t/topic/1810923). This project is a further derivative / secondary development based on that script direction.
 
 ## License
 

@@ -27,6 +27,10 @@
 - 查看最近报告（默认前 5 个）
 - 登录限流、Host 白名单、Cookie 安全属性
 
+## 示例说明
+
+文中涉及的账号场景、探测说明和相关描述，默认以 **codex** 为例；其他兼容 provider 的处理思路基本一致。
+
 ## 部署要求
 
 - Linux
@@ -266,7 +270,7 @@ systemctl restart CLIProxyAPI-cleaner.service
 
 ## 致谢
 
-感谢 LinuxDo 佬友 [@jingtai123](https://linux.do/t/topic/1810923)，本项目基于其相关脚本思路继续二开整理。
+感谢 **LinuxDo 社区** 提供交流环境，也感谢 LinuxDo 佬友 [@jingtai123](https://linux.do/t/topic/1810923)，本项目基于其相关脚本思路继续二开整理。
 
 ## License
 
