@@ -4,7 +4,7 @@
 
 ## 适合谁用
 
-如果你已经有自己的 `proxy_cleaner.py`，但不想每次都手敲命令、翻日志、手动找报告，这个小项目会比较顺手。
+这个仓库现在同时包含 `proxy_cleaner.py` 主脚本和它的可视化控制台。如果你不想每次都手敲命令、翻日志、手动找报告，这套东西会比较顺手。
 
 它提供：
 
@@ -39,11 +39,13 @@
 │   ├── index.html
 │   ├── app.js
 │   └── styles.css
+├── proxy_cleaner.py
 └── README.md
 ```
 
 ## 运行原理
 
+- `proxy_cleaner.py`：真正执行账号检测、禁用、删除、refresh、复活探测的主脚本
 - `app.py`：WSGI 小后端，负责登录、状态查询、保存配置、控制 systemd、查看报告
 - `common.py`：统一配置、校验、命令拼装
 - `run_cleaner.py`：读取 `web_config.json` 后，用当前配置启动真实 cleaner
