@@ -168,6 +168,87 @@ systemctl daemon-reload
 - Keep `allowed_hosts` strict
 - Prefer binding to `127.0.0.1` and exposing only via Nginx
 
+## How to adapt other auth file formats / providers
+
+The current repository provides its most complete implementation for **codex / openai / chatgpt** style auth files, especially for the “quota exhausted -> refresh -> revival probe” flow. That flow currently assumes:
+
+- the local auth file is a JSON object
+- a `refresh_token` is available
+- refresh logic is compatible with the OpenAI-family token endpoint
+- a new `access_token` can be written back after refresh
+- a follow-up probe can be executed through the configured `api_call_url`
+
+If you want to support **other auth file formats** or providers, the main adaptation points are:
+
+### 1. Classification rules
+
+Check `classify()` and `classify_api_call_response()`.
+You need to decide:
+
+- which errors mean 401 / invalid auth
+- which errors mean quota exhaustion / rate limit / billing issue
+- which states should stay recoverable instead of being deleted
+
+### 2. Account ID and request header extraction
+
+Check `choose_account_id()` and `direct_probe_auth()`.
+If your provider does not use `Chatgpt-Account-Id`, you should adapt the required headers and account identity extraction here.
+
+### 3. Auth file read / write format
+
+Check `load_auth_payload_from_path()` and `write_auth_payload()`.
+If your auth file is not the current JSON structure, this layer must be adapted first.
+
+### 4. Refresh logic
+
+Check `refresh_openai_family_tokens()`.
+This is not a universal refresh layer; it is the current provider-specific implementation.
+For another provider, you will usually need to replace:
+
+- token endpoint
+- request parameters
+- response parsing
+- token write-back format
+
+### 5. Revival support scope
+
+Check `run_revival_cycle()`.
+Right now revival is only enabled for `codex`, `openai`, and `chatgpt`.
+To support another provider, you need to:
+
+- add that provider to the supported list
+- ensure a valid local auth file path exists
+- make sure refresh / probe logic is already adapted
+
+### 6. Partial support is also fine
+
+For some providers, you may only be able to support:
+
+- availability detection
+- 401 detection
+- quota detection
+
+and not token refresh. That is still fine. In that case, you can keep revival in a reduced mode, such as:
+
+- disable first
+- probe later
+- skip refresh entirely
+- or disable revival for that provider
+
+### 7. Practical adaptation order
+
+A stable way to adapt a new provider is:
+
+1. make `classify()` correct
+2. make `/api-call` probing work
+3. adapt auth-file reading
+4. then add refresh + revival
+
+In short:
+
+> this repository is not limited to codex only, but the most complete built-in implementation is currently centered on codex / openai / chatgpt style auth files.
+> For other auth file formats, the main adaptation layers are **classification, headers, file structure, refresh, and revival**.
+
 ## Acknowledgements
 
 Thanks to the **LinuxDo community** for the discussion space, and special thanks to LinuxDo contributor [@jingtai123](https://linux.do/t/topic/1810923). This project is a further derivative / secondary development based on that script direction.

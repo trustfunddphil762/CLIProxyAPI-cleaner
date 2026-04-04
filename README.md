@@ -268,6 +268,102 @@ systemctl restart CLIProxyAPI-cleaner.service
 - `app.py` 是否在跑
 - 反代后有没有多余的路径重写
 
+## 如何适配别的认证文件 / provider
+
+当前仓库里默认实现，主要是围绕 **codex / openai / chatgpt** 这类认证文件来写的，尤其是“额度号后续 refresh + 复活探测”这一段，默认依赖以下前提：
+
+- 本地 auth-file 是 JSON 对象
+- 文件里能拿到 `refresh_token`
+- refresh 逻辑兼容 OpenAI family 的 token 接口
+- refresh 成功后能拿到新的 `access_token`（以及可能的新 `refresh_token` / `id_token`）
+- 后续可以通过配置的 `api_call_url` 再 probe 一次
+
+如果你要接入**别的认证文件格式**，思路也不复杂，主要改这几层：
+
+### 1. 先改分类逻辑
+
+看 `classify()` 和 `classify_api_call_response()`：
+
+- 你自己的 provider 会返回什么错误
+- 哪些错误应该判成 401 / token 失效
+- 哪些错误应该判成额度耗尽 / rate limit / billing 限制
+
+先把这层规则调整对，后面的处理策略才会跟着对。
+
+### 2. 改 account_id / 请求头提取逻辑
+
+看 `choose_account_id()` 和 `direct_probe_auth()`：
+
+- 你的认证文件里账号 ID 在哪
+- 你的上游接口需要什么 header
+- 是否还需要别的字段而不是 `Chatgpt-Account-Id`
+
+如果不是 OpenAI / Codex 体系，这里通常都要按你自己的接口规范改。
+
+### 3. 改 auth-file 读取 / 写回格式
+
+看 `load_auth_payload_from_path()` 和 `write_auth_payload()`：
+
+如果你的认证文件不是当前这种 JSON 结构，而是别的字段命名，甚至不是 JSON，那这里要先适配。
+
+### 4. 改 refresh 逻辑
+
+看 `refresh_openai_family_tokens()`：
+
+这一段现在是按 OpenAI family 的 refresh 流程写的。
+如果你接的是别的 provider，最常见的改法是：
+
+- 替换 token endpoint
+- 替换请求参数
+- 替换返回字段解析
+- 把新的 token 写回成你自己的 auth-file 格式
+
+也就是说，**这一段不是通用标准层，而是当前 provider 适配层**。
+
+### 5. 改 revival 支持范围
+
+看 `run_revival_cycle()`：
+
+现在里面默认只对 `codex`、`openai`、`chatgpt` 做 revival。
+如果你要支持别的 provider，需要：
+
+- 把 provider 名加入支持列表
+- 保证它有可读本地文件路径
+- 保证你前面的 refresh / probe 逻辑已经适配好
+
+### 6. 如果只是“能检测不能 refresh”也可以先接
+
+有些 provider 可能你只能做到：
+
+- 检测可用 / 不可用
+- 检测 401
+- 检测额度问题
+
+但没法做 refresh。
+
+这种情况也完全可以先接入，只是 revival 部分要降级处理，比如：
+
+- 只禁用
+- 到期后只做 probe
+- 不做 token refresh
+- 或者直接跳过复活机制
+
+### 7. 最实用的适配顺序
+
+如果你要接一个新 provider，我建议按这个顺序来：
+
+1. 先让 `classify()` 正确识别状态
+2. 再让 `/api-call` 主动探测可用
+3. 再适配 auth-file 读取
+4. 最后再补 refresh + revival
+
+这样比较稳，不容易一上来把整套东西改乱。
+
+简单说：
+
+> 这个仓库不是只能支持 codex，但当前“最完整的一套实现”确实是以 codex / openai / chatgpt 这类 auth-file 为例。
+> 如果换别的认证文件，重点是改 **分类、请求头、文件结构、refresh、revival** 这几层。
+
 ## 致谢
 
 感谢 **LinuxDo 社区** 提供交流环境，也感谢 LinuxDo 佬友 [@jingtai123](https://linux.do/t/topic/1810923)，本项目基于其相关脚本思路继续二开整理。
