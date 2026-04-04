@@ -1,0 +1,21 @@
+[Unit]
+Description=CLIProxyAPI-cleaner background service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/CLIProxyAPI-cleaner
+ExecStart=/usr/bin/python3 /opt/CLIProxyAPI-cleaner/run_cleaner.py
+Restart=always
+RestartSec=5
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/root /var/log /tmp /opt/CLIProxyAPI-cleaner
+StandardOutput=append:/root/CLIProxyAPI-cleaner.log
+StandardError=append:/root/CLIProxyAPI-cleaner.log
+
+[Install]
+WantedBy=multi-user.target

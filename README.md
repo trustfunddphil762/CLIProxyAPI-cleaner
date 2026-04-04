@@ -1,12 +1,23 @@
-# CPA Cleaner
+# CLIProxyAPI-cleaner
 
-给 `cpa_cleaner.py` 做的一个可视化 Web 控制台，适合把“配置、启动、观察日志、查看报告”这几件事集中到一个页面里处理。
+中文 | [English](README_EN.md)
 
-## 适合谁用
+`CLIProxyAPI-cleaner` 是一个“**自动清理脚本 + Web 控制台**”一体化项目，用来管理和清理 CLIProxyAPI / auth-file 相关账号状态。
 
-这个仓库现在同时包含 `cpa_cleaner.py` 主脚本和它的可视化控制台。如果你不想每次都手敲命令、翻日志、手动找报告，这套东西会比较顺手。
+仓库默认首页是中文说明；如果你想看英文版，可以直接点上面的 **English**。
 
-它提供：
+## 这个仓库包含什么
+
+- `CLIProxyAPI-cleaner.py`：真正执行检测、禁用、删除、refresh、复活探测的主脚本
+- `app.py`：轻量 Web 后端，负责登录、状态查询、保存配置、控制 systemd、查看报告
+- `common.py`：配置加载、校验、命令拼装
+- `run_cleaner.py`：读取 `web_config.json` 并按当前配置启动 cleaner
+- `CLIProxyAPI-cleaner.service`：后台清理服务
+- `CLIProxyAPI-cleaner-web.service`：控制台服务
+- `static/`：前端页面
+- `web_config.example.json`：公开版示例配置
+
+## 能做什么
 
 - 参数填写与保存
 - 一键启动 / 停止 / 重启 cleaner
@@ -14,99 +25,108 @@
 - 一键执行 dry-run
 - 查看 cleaner / web 日志
 - 查看最近报告（默认前 5 个）
-- 服务端密码校验（PBKDF2 哈希）
-- HttpOnly + Secure + SameSite=Strict Cookie
-- Host 白名单限制
-- systemd 服务文件示例
-
-## 页面
-
-- 顶部状态卡片
-- 自动刷新状态 / 日志
-- 报告摘要弹窗
-- 苹果风浅色 UI，移动端也能看
-
-## 目录结构
-
-```text
-.
-├── app.py
-├── common.py
-├── run_cleaner.py
-├── cpa-cleaner.service
-├── cpa-cleaner-web.service
-├── static/
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── cpa_cleaner.py
-└── README.md
-```
-
-## 运行原理
-
-- `cpa_cleaner.py`：真正执行账号检测、禁用、删除、refresh、复活探测的主脚本
-- `app.py`：WSGI 小后端，负责登录、状态查询、保存配置、控制 systemd、查看报告
-- `common.py`：统一配置、校验、命令拼装
-- `run_cleaner.py`：读取 `web_config.json` 后，用当前配置启动真实 cleaner
-- `cpa-cleaner.service`：后台 cleaner 服务
-- `cpa-cleaner-web.service`：控制台 Web 服务
-
-## 为什么加 `run_cleaner.py`
-
-一个常见坑是：
-
-> 页面里保存了配置，但 systemd 的 `ExecStart` 还是写死参数，结果“看起来改了，实际没生效”。
-
-这里用 `run_cleaner.py` 兜了一层，让 cleaner 每次都从 `web_config.json` 读取最新配置，再去启动实际任务。这样页面保存后，**重启 cleaner 服务即可真正生效**。
+- 登录限流、Host 白名单、Cookie 安全属性
 
 ## 部署要求
 
 - Linux
 - Python 3.10+
 - systemd
-- Nginx（反代可选，但推荐）
-- 已有可执行的 `cpa_cleaner.py`
+- Nginx（推荐，用于反代）
+- 服务器具备访问上游 API 和你的管理端地址的网络能力
 
-## 快速部署
+## 目录结构
 
-### 1. 上传项目
-
-```bash
-mkdir -p /opt/cpa-cleaner
-cp -r ./* /opt/cpa-cleaner/
+```text
+.
+├── CLIProxyAPI-cleaner.py
+├── app.py
+├── common.py
+├── run_cleaner.py
+├── CLIProxyAPI-cleaner.service
+├── CLIProxyAPI-cleaner-web.service
+├── web_config.example.json
+├── static/
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── README.md
+└── README_EN.md
 ```
 
-### 2. 安装 systemd 服务
+## 部署原理
+
+页面保存配置后，会写入 `web_config.json`。
+`run_cleaner.py` 启动时会读取这份配置，再调用 `CLIProxyAPI-cleaner.py`。
+这样就不会出现“页面里改了参数，但 systemd 仍然跑旧命令”的问题。
+
+---
+
+# 详细部署说明
+
+## 1）获取代码
+
+你可以直接 clone：
 
 ```bash
-cp cpa-cleaner.service /etc/systemd/system/cpa-cleaner.service
-cp cpa-cleaner-web.service /etc/systemd/system/cpa-cleaner-web.service
-systemctl daemon-reload
-systemctl enable cpa-cleaner.service cpa-cleaner-web.service
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
 ```
 
-### 3. 首次生成配置
+也可以在本地解压后再上传到服务器。
 
-第一次运行前，建议先手动创建 `/opt/cpa-cleaner/web_config.json`。
+## 2）准备安装目录
 
-示例：
+推荐安装到：
+
+```bash
+mkdir -p /opt/CLIProxyAPI-cleaner
+cp -r ./* /opt/CLIProxyAPI-cleaner/
+cd /opt/CLIProxyAPI-cleaner
+```
+
+## 3）生成控制台登录密码哈希
+
+仓库里的 `web_config.example.json` 只是示例，正式部署前建议先生成你自己的控制台密码哈希：
+
+```bash
+python3 - <<'PY'
+import os, hashlib
+password = 'change-me-now'
+salt = os.urandom(16).hex()
+digest = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 260000).hex()
+print('password_salt =', salt)
+print('password_hash =', digest)
+PY
+```
+
+把输出的 `password_salt` 和 `password_hash` 写进配置文件。
+
+## 4）创建正式配置文件
+
+先复制示例配置：
+
+```bash
+cp web_config.example.json web_config.json
+```
+
+然后按你的环境修改：
 
 ```json
 {
   "listen_host": "127.0.0.1",
   "listen_port": 28717,
-  "allowed_hosts": ["example.com", "127.0.0.1", "localhost"],
-  "cpa_cleaner_path": "/root/cpa_cleaner.py",
-  "state_file": "/root/cpa_cleaner_state.json",
-  "base_url": "https://example.com/management.html",
-  "management_key": "replace-me",
+  "allowed_hosts": ["your-domain.com", "127.0.0.1", "localhost"],
+  "cleaner_path": "/opt/CLIProxyAPI-cleaner/CLIProxyAPI-cleaner.py",
+  "state_file": "/root/CLIProxyAPI-cleaner-state.json",
+  "base_url": "https://your-domain.com/management.html",
+  "management_key": "your-management-key",
   "interval": 60,
   "enable_api_call_check": true,
   "api_call_url": "https://chatgpt.com/backend-api/wham/usage",
   "api_call_method": "GET",
   "api_call_account_id": "",
-  "api_call_user_agent": "Mozilla/5.0 CPACleanerConsole/1.0",
+  "api_call_user_agent": "Mozilla/5.0 CLIProxyAPI-cleaner/1.0",
   "api_call_body": "",
   "api_call_providers": "codex,openai,chatgpt",
   "api_call_max_per_run": 50,
@@ -114,28 +134,37 @@ systemctl enable cpa-cleaner.service cpa-cleaner-web.service
   "api_call_sleep_max": 10.0,
   "revival_wait_days": 7,
   "revival_probe_interval_hours": 12,
-  "password_salt": "请自行生成",
-  "password_hash": "请自行生成"
+  "password_salt": "replace-with-your-generated-salt",
+  "password_hash": "replace-with-your-generated-hash"
 }
 ```
 
-> 仓库里故意不提交 `web_config.json`，避免把线上敏感配置直接带出去。
+### 关键字段解释
 
-### 4. 启动服务
+- `cleaner_path`：主脚本路径
+- `state_file`：状态文件，用来记录复活检查节奏
+- `base_url`：你的管理端地址
+- `management_key`：管理 API 所需密钥
+- `allowed_hosts`：允许访问控制台的 Host 白名单
+- `password_salt` / `password_hash`：控制台登录密码
+
+> 仓库里**故意不提交**真正的 `web_config.json`，避免把线上敏感配置带出去。
+
+## 5）安装 systemd 服务
 
 ```bash
-systemctl restart cpa-cleaner-web.service
-systemctl restart cpa-cleaner.service
-systemctl status cpa-cleaner-web.service --no-pager
-systemctl status cpa-cleaner.service --no-pager
+cp CLIProxyAPI-cleaner.service /etc/systemd/system/CLIProxyAPI-cleaner.service
+cp CLIProxyAPI-cleaner-web.service /etc/systemd/system/CLIProxyAPI-cleaner-web.service
+systemctl daemon-reload
+systemctl enable CLIProxyAPI-cleaner.service CLIProxyAPI-cleaner-web.service
 ```
 
-## Nginx 示例
+## 6）配置 Nginx 反代
 
-假设你要把页面挂到 `/cpa-cleaner/`：
+如果你想把控制台挂到 `https://your-domain.com/CLIProxyAPI-cleaner/`，可以加：
 
 ```nginx
-location ^~ /cpa-cleaner/ {
+location ^~ /CLIProxyAPI-cleaner/ {
     proxy_pass http://127.0.0.1:28717;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -150,53 +179,94 @@ location ^~ /cpa-cleaner/ {
 }
 ```
 
-## 安全说明
+改完后执行：
 
-这个项目默认做了几层比较基础但实用的保护：
+```bash
+nginx -t && systemctl reload nginx
+```
 
-- 控制台密码只保存 PBKDF2 哈希，不保存明文
-- Cookie 开启 HttpOnly / Secure / SameSite=Strict
-- Host 白名单校验
-- 登录失败限流
-- systemd 加了 `NoNewPrivileges=true`
-- 使用 `ProtectSystem=full`
+## 7）启动服务
 
-但还是建议你自己额外做这些：
+```bash
+systemctl restart CLIProxyAPI-cleaner-web.service
+systemctl restart CLIProxyAPI-cleaner.service
+```
 
-- 不要暴露在任何人都能扫到的公网路径上，最好加 IP 限制或额外认证
-- 反代层再套一层 Basic Auth / Access Policy 会更稳
-- 首次部署后立刻更换默认控制台密码
-- 把 `allowed_hosts` 改成你自己的正式域名
-- 定期检查日志和报告目录权限
+## 8）检查运行状态
 
-## 默认密码提示
+```bash
+systemctl status CLIProxyAPI-cleaner-web.service --no-pager
+systemctl status CLIProxyAPI-cleaner.service --no-pager
+```
 
-仓库里的默认控制台密码只是占位用途，请在首次部署后马上改掉。
+看日志：
 
-建议做法：
+```bash
+tail -f /opt/CLIProxyAPI-cleaner/web.log
+tail -f /root/CLIProxyAPI-cleaner.log
+```
 
-1. 先自己生成新的 PBKDF2 哈希
-2. 写入 `web_config.json`
-3. 重启 `cpa-cleaner-web.service`
+## 9）首次访问
 
-如果你愿意，也可以扩展成“页面内修改控制台登录密码”，这个仓库已经预留了后端配置更新能力，补个前端字段就行。
+浏览器打开：
 
-## 已知限制
+```text
+https://your-domain.com/CLIProxyAPI-cleaner/
+```
 
-- 依赖 `systemctl` 控制服务，不适合没有 systemd 的环境
-- 默认报告目录路径和 cleaner 运行路径，需要按你自己的环境改
-- 这是一个偏实用型的单文件小后端，不是 Flask / FastAPI 工程化脚手架
+输入你在第 3 步生成对应的控制台密码即可登录。
 
-## 适合继续加的功能
+## 10）后续更新
 
-- 页面内直接修改控制台登录密码
-- 多用户 / 多角色权限
-- 报告筛选与搜索
-- cleaner 服务运行历史图表
-- Telegram / 企业微信告警推送
-- Docker Compose 部署版
+如果你后面从 GitHub 拉了新版代码：
+
+```bash
+cd /opt/CLIProxyAPI-cleaner
+git pull
+systemctl restart CLIProxyAPI-cleaner-web.service
+systemctl restart CLIProxyAPI-cleaner.service
+```
+
+如果更新中改了 service 文件，记得再执行：
+
+```bash
+systemctl daemon-reload
+```
+
+---
+
+## 安全建议
+
+- 不要把控制台直接裸露到公网，最好再加 IP 限制或上游认证
+- 首次部署后立刻替换默认示例密码
+- `allowed_hosts` 不要保留 `example.com`
+- 尽量只监听 `127.0.0.1`，通过 Nginx 暴露页面
+- 定期检查日志与报告目录权限
+
+## 常见问题
+
+### 1. 页面能打开，但登录失败
+
+优先检查：
+- `web_config.json` 里的 `password_salt` / `password_hash` 是否和你生成的一致
+- 是否重启了 `CLIProxyAPI-cleaner-web.service`
+
+### 2. 页面里保存了配置，但 cleaner 没变化
+
+重启：
+
+```bash
+systemctl restart CLIProxyAPI-cleaner.service
+```
+
+### 3. 页面 404 或静态资源加载失败
+
+检查：
+- Nginx 的 `location ^~ /CLIProxyAPI-cleaner/` 是否正确
+- `app.py` 是否在跑
+- 反代后有没有多余的路径重写
 
 ## License
 
-本项目采用 **MIT License**，你可以在保留原始版权声明和许可证文本的前提下自由使用、修改、分发。
+本项目采用 **MIT License**。
 详细内容见仓库根目录的 `LICENSE` 文件。

@@ -11,13 +11,13 @@ from urllib.parse import urlparse
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / 'static'
 CONFIG_PATH = APP_DIR / 'web_config.json'
-CLEANER_LOG_PATH = Path('/root/cpa_cleaner_runtime.log')
+CLEANER_LOG_PATH = Path('/root/CLIProxyAPI-cleaner.log')
 WEB_LOG_PATH = APP_DIR / 'web.log'
 REPORT_DIR = Path('/root/reports/cliproxyapi-auth-cleaner')
-CLEANER_SERVICE = 'cpa-cleaner.service'
-WEB_SERVICE = 'cpa-cleaner-web.service'
+CLEANER_SERVICE = 'CLIProxyAPI-cleaner.service'
+WEB_SERVICE = 'CLIProxyAPI-cleaner-web.service'
 COOKIE_NAME = 'pcw_session'
-COOKIE_PATH = '/cpa-cleaner/'
+COOKIE_PATH = '/CLIProxyAPI-cleaner/'
 
 PASSWORD_PBKDF2_ITERATIONS = 260000
 
@@ -25,8 +25,8 @@ DEFAULT_CONFIG = {
     'listen_host': '127.0.0.1',
     'listen_port': 28717,
     'allowed_hosts': ['example.com', '127.0.0.1', 'localhost'],
-    'cpa_cleaner_path': '/root/cpa_cleaner.py',
-    'state_file': '/root/cpa_cleaner_state.json',
+    'cleaner_path': '/root/CLIProxyAPI-cleaner.py',
+    'state_file': '/root/CLIProxyAPI-cleaner-state.json',
     'base_url': 'https://example.com/management.html',
     'management_key': 'replace-me',
     'interval': 60,
@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     'api_call_url': 'https://chatgpt.com/backend-api/wham/usage',
     'api_call_method': 'GET',
     'api_call_account_id': '',
-    'api_call_user_agent': 'Mozilla/5.0 CPACleanerConsole/1.0',
+    'api_call_user_agent': 'Mozilla/5.0 CLIProxyAPI-cleaner/1.0',
     'api_call_body': '',
     'api_call_providers': 'codex,openai,chatgpt',
     'api_call_max_per_run': 50,
@@ -80,6 +80,13 @@ def load_config() -> dict:
             raw = {}
         if isinstance(raw, dict):
             config.update(raw)
+    if 'cleaner_path' not in config:
+        if config.get('cpa_cleaner_path'):
+            config['cleaner_path'] = config.get('cpa_cleaner_path')
+        elif config.get('proxy_cleaner_path'):
+            config['cleaner_path'] = config.get('proxy_cleaner_path')
+    config.pop('cpa_cleaner_path', None)
+    config.pop('proxy_cleaner_path', None)
     config['allowed_hosts'] = normalize_allowed_hosts(config.get('allowed_hosts'))
     return config
 
@@ -87,6 +94,8 @@ def load_config() -> dict:
 def save_config(config: dict) -> None:
     ensure_app_dirs()
     config = dict(config)
+    config.pop('cpa_cleaner_path', None)
+    config.pop('proxy_cleaner_path', None)
     config['allowed_hosts'] = normalize_allowed_hosts(config.get('allowed_hosts'))
     tmp = CONFIG_PATH.with_suffix('.json.tmp')
     tmp.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -230,7 +239,7 @@ def validate_and_merge_config(existing: dict, incoming: dict) -> dict:
 def build_cleaner_command(config: dict, *, once: bool = False, dry_run: bool = False) -> list[str]:
     cmd = [
         sys.executable,
-        str(config['cpa_cleaner_path']),
+        str(config['cleaner_path']),
         '--base-url', str(config['base_url']),
         '--management-key', str(config['management_key']),
         '--interval', str(int(config['interval'])),

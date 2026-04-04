@@ -16,5 +16,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as exc:
-        print(f'run_cleaner.py failed: {exc}', file=sys.stderr)
+        print(f'CLIProxyAPI-cleaner launcher failed: {exc}', file=sys.stderr)
         raise

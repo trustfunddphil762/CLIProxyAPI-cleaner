@@ -414,32 +414,32 @@ def application(environ, start_response):
         return json_response(start_response, {'ok': False, 'error': 'forbidden_host'}, status='403 Forbidden')
 
     try:
-        if path in ('/cpa-cleaner', '/cpa-cleaner/'):
+        if path in ('/CLIProxyAPI-cleaner', '/CLIProxyAPI-cleaner/'):
             html, content_type = load_static('index.html', 'text/html; charset=utf-8')
             return text_response(start_response, html, content_type=content_type)
-        if path == '/cpa-cleaner/app.js':
+        if path == '/CLIProxyAPI-cleaner/app.js':
             js, content_type = load_static('app.js', 'application/javascript; charset=utf-8')
             return text_response(start_response, js, content_type=content_type)
-        if path == '/cpa-cleaner/styles.css':
+        if path == '/CLIProxyAPI-cleaner/styles.css':
             css, content_type = load_static('styles.css', 'text/css; charset=utf-8')
             return text_response(start_response, css, content_type=content_type)
-        if path == '/cpa-cleaner/api/login':
+        if path == '/CLIProxyAPI-cleaner/api/login':
             return handle_login(environ, start_response)
-        if path == '/cpa-cleaner/api/logout':
+        if path == '/CLIProxyAPI-cleaner/api/logout':
             return handle_logout(environ, start_response)
-        if path == '/cpa-cleaner/api/status':
+        if path == '/CLIProxyAPI-cleaner/api/status':
             return handle_status(environ, start_response)
-        if path == '/cpa-cleaner/api/report':
+        if path == '/CLIProxyAPI-cleaner/api/report':
             return handle_report_detail(environ, start_response)
-        if path == '/cpa-cleaner/api/config/save':
+        if path == '/CLIProxyAPI-cleaner/api/config/save':
             return handle_save_config(environ, start_response)
-        if path == '/cpa-cleaner/api/service/start':
+        if path == '/CLIProxyAPI-cleaner/api/service/start':
             return handle_service_action(environ, start_response, 'start')
-        if path == '/cpa-cleaner/api/service/stop':
+        if path == '/CLIProxyAPI-cleaner/api/service/stop':
             return handle_service_action(environ, start_response, 'stop')
-        if path == '/cpa-cleaner/api/service/restart':
+        if path == '/CLIProxyAPI-cleaner/api/service/restart':
             return handle_service_action(environ, start_response, 'restart')
-        if path == '/cpa-cleaner/api/run-once':
+        if path == '/CLIProxyAPI-cleaner/api/run-once':
             return handle_run_once(environ, start_response)
         return json_response(start_response, {'ok': False, 'error': 'not_found'}, status='404 Not Found')
     except AppError as e:
