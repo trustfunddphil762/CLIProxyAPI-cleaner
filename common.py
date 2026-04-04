@@ -11,13 +11,13 @@ from urllib.parse import urlparse
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / 'static'
 CONFIG_PATH = APP_DIR / 'web_config.json'
-CLEANER_LOG_PATH = Path('/root/proxy_cleaner_runtime.log')
+CLEANER_LOG_PATH = Path('/root/cpa_cleaner_runtime.log')
 WEB_LOG_PATH = APP_DIR / 'web.log'
 REPORT_DIR = Path('/root/reports/cliproxyapi-auth-cleaner')
-CLEANER_SERVICE = 'proxy-cleaner.service'
-WEB_SERVICE = 'proxy-cleaner-web.service'
+CLEANER_SERVICE = 'cpa-cleaner.service'
+WEB_SERVICE = 'cpa-cleaner-web.service'
 COOKIE_NAME = 'pcw_session'
-COOKIE_PATH = '/proxy-cleaner/'
+COOKIE_PATH = '/cpa-cleaner/'
 
 PASSWORD_PBKDF2_ITERATIONS = 260000
 
@@ -25,8 +25,8 @@ DEFAULT_CONFIG = {
     'listen_host': '127.0.0.1',
     'listen_port': 28717,
     'allowed_hosts': ['example.com', '127.0.0.1', 'localhost'],
-    'proxy_cleaner_path': '/root/proxy_cleaner.py',
-    'state_file': '/root/proxy_cleaner_state.json',
+    'cpa_cleaner_path': '/root/cpa_cleaner.py',
+    'state_file': '/root/cpa_cleaner_state.json',
     'base_url': 'https://example.com/management.html',
     'management_key': 'replace-me',
     'interval': 60,
@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     'api_call_url': 'https://chatgpt.com/backend-api/wham/usage',
     'api_call_method': 'GET',
     'api_call_account_id': '',
-    'api_call_user_agent': 'Mozilla/5.0 ProxyCleanerConsole/1.0',
+    'api_call_user_agent': 'Mozilla/5.0 CPACleanerConsole/1.0',
     'api_call_body': '',
     'api_call_providers': 'codex,openai,chatgpt',
     'api_call_max_per_run': 50,
@@ -230,7 +230,7 @@ def validate_and_merge_config(existing: dict, incoming: dict) -> dict:
 def build_cleaner_command(config: dict, *, once: bool = False, dry_run: bool = False) -> list[str]:
     cmd = [
         sys.executable,
-        str(config['proxy_cleaner_path']),
+        str(config['cpa_cleaner_path']),
         '--base-url', str(config['base_url']),
         '--management-key', str(config['management_key']),
         '--interval', str(int(config['interval'])),

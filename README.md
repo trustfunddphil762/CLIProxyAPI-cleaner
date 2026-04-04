@@ -1,10 +1,10 @@
-# Proxy Cleaner Console
+# CPA Cleaner
 
-给 `proxy_cleaner.py` 做的一个可视化 Web 控制台，适合把“配置、启动、观察日志、查看报告”这几件事集中到一个页面里处理。
+给 `cpa_cleaner.py` 做的一个可视化 Web 控制台，适合把“配置、启动、观察日志、查看报告”这几件事集中到一个页面里处理。
 
 ## 适合谁用
 
-这个仓库现在同时包含 `proxy_cleaner.py` 主脚本和它的可视化控制台。如果你不想每次都手敲命令、翻日志、手动找报告，这套东西会比较顺手。
+这个仓库现在同时包含 `cpa_cleaner.py` 主脚本和它的可视化控制台。如果你不想每次都手敲命令、翻日志、手动找报告，这套东西会比较顺手。
 
 它提供：
 
@@ -33,24 +33,24 @@
 ├── app.py
 ├── common.py
 ├── run_cleaner.py
-├── proxy-cleaner.service
-├── proxy-cleaner-web.service
+├── cpa-cleaner.service
+├── cpa-cleaner-web.service
 ├── static/
 │   ├── index.html
 │   ├── app.js
 │   └── styles.css
-├── proxy_cleaner.py
+├── cpa_cleaner.py
 └── README.md
 ```
 
 ## 运行原理
 
-- `proxy_cleaner.py`：真正执行账号检测、禁用、删除、refresh、复活探测的主脚本
+- `cpa_cleaner.py`：真正执行账号检测、禁用、删除、refresh、复活探测的主脚本
 - `app.py`：WSGI 小后端，负责登录、状态查询、保存配置、控制 systemd、查看报告
 - `common.py`：统一配置、校验、命令拼装
 - `run_cleaner.py`：读取 `web_config.json` 后，用当前配置启动真实 cleaner
-- `proxy-cleaner.service`：后台 cleaner 服务
-- `proxy-cleaner-web.service`：控制台 Web 服务
+- `cpa-cleaner.service`：后台 cleaner 服务
+- `cpa-cleaner-web.service`：控制台 Web 服务
 
 ## 为什么加 `run_cleaner.py`
 
@@ -66,29 +66,29 @@
 - Python 3.10+
 - systemd
 - Nginx（反代可选，但推荐）
-- 已有可执行的 `proxy_cleaner.py`
+- 已有可执行的 `cpa_cleaner.py`
 
 ## 快速部署
 
 ### 1. 上传项目
 
 ```bash
-mkdir -p /opt/proxy-cleaner-console
-cp -r ./* /opt/proxy-cleaner-console/
+mkdir -p /opt/cpa-cleaner
+cp -r ./* /opt/cpa-cleaner/
 ```
 
 ### 2. 安装 systemd 服务
 
 ```bash
-cp proxy-cleaner.service /etc/systemd/system/proxy-cleaner.service
-cp proxy-cleaner-web.service /etc/systemd/system/proxy-cleaner-web.service
+cp cpa-cleaner.service /etc/systemd/system/cpa-cleaner.service
+cp cpa-cleaner-web.service /etc/systemd/system/cpa-cleaner-web.service
 systemctl daemon-reload
-systemctl enable proxy-cleaner.service proxy-cleaner-web.service
+systemctl enable cpa-cleaner.service cpa-cleaner-web.service
 ```
 
 ### 3. 首次生成配置
 
-第一次运行前，建议先手动创建 `/opt/proxy-cleaner-console/web_config.json`。
+第一次运行前，建议先手动创建 `/opt/cpa-cleaner/web_config.json`。
 
 示例：
 
@@ -97,8 +97,8 @@ systemctl enable proxy-cleaner.service proxy-cleaner-web.service
   "listen_host": "127.0.0.1",
   "listen_port": 28717,
   "allowed_hosts": ["example.com", "127.0.0.1", "localhost"],
-  "proxy_cleaner_path": "/root/proxy_cleaner.py",
-  "state_file": "/root/proxy_cleaner_state.json",
+  "cpa_cleaner_path": "/root/cpa_cleaner.py",
+  "state_file": "/root/cpa_cleaner_state.json",
   "base_url": "https://example.com/management.html",
   "management_key": "replace-me",
   "interval": 60,
@@ -106,7 +106,7 @@ systemctl enable proxy-cleaner.service proxy-cleaner-web.service
   "api_call_url": "https://chatgpt.com/backend-api/wham/usage",
   "api_call_method": "GET",
   "api_call_account_id": "",
-  "api_call_user_agent": "Mozilla/5.0 ProxyCleanerConsole/1.0",
+  "api_call_user_agent": "Mozilla/5.0 CPACleanerConsole/1.0",
   "api_call_body": "",
   "api_call_providers": "codex,openai,chatgpt",
   "api_call_max_per_run": 50,
@@ -124,18 +124,18 @@ systemctl enable proxy-cleaner.service proxy-cleaner-web.service
 ### 4. 启动服务
 
 ```bash
-systemctl restart proxy-cleaner-web.service
-systemctl restart proxy-cleaner.service
-systemctl status proxy-cleaner-web.service --no-pager
-systemctl status proxy-cleaner.service --no-pager
+systemctl restart cpa-cleaner-web.service
+systemctl restart cpa-cleaner.service
+systemctl status cpa-cleaner-web.service --no-pager
+systemctl status cpa-cleaner.service --no-pager
 ```
 
 ## Nginx 示例
 
-假设你要把页面挂到 `/proxy-cleaner/`：
+假设你要把页面挂到 `/cpa-cleaner/`：
 
 ```nginx
-location ^~ /proxy-cleaner/ {
+location ^~ /cpa-cleaner/ {
     proxy_pass http://127.0.0.1:28717;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -177,7 +177,7 @@ location ^~ /proxy-cleaner/ {
 
 1. 先自己生成新的 PBKDF2 哈希
 2. 写入 `web_config.json`
-3. 重启 `proxy-cleaner-web.service`
+3. 重启 `cpa-cleaner-web.service`
 
 如果你愿意，也可以扩展成“页面内修改控制台登录密码”，这个仓库已经预留了后端配置更新能力，补个前端字段就行。
 
