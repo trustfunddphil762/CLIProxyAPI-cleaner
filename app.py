@@ -25,7 +25,6 @@ from common import (
     CLEANER_SERVICE,
     WEB_SERVICE,
     CONTROL_MODE,
-    SUPERVISORCTL_BIN,
     SUPERVISOR_CLEANER_NAME,
     SUPERVISOR_WEB_NAME,
     build_cleaner_command,
@@ -214,6 +213,14 @@ def systemctl(*args: str) -> tuple[int, str]:
 
 def supervisorctl(*args: str) -> tuple[int, str]:
     return run_command(build_supervisorctl_command(*args))
+
+
+def schedule_background_command(cmd: str, *, log_path: str) -> None:
+    subprocess.Popen(
+        ['sh', '-lc', f'sleep 1; {cmd} >>{shlex.quote(log_path)} 2>&1'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def control_target_name(target: str) -> str:
@@ -409,14 +416,16 @@ def handle_service_action(environ, start_response, action: str):
     if action not in ('start', 'stop', 'restart'):
         raise AppError('bad_action', '不支持的动作')
 
-    if CONTROL_MODE == 'supervisor':
-        if target == 'web' and action == 'restart':
-            quoted_cmd = ' '.join(shlex.quote(part) for part in build_supervisorctl_command('restart', service))
-            cmd = f"sleep 1; {quoted_cmd} >/tmp/cliproxyapi-web-restart.log 2>&1"
-            subprocess.Popen(['sh', '-lc', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            code, output = 0, 'web restart scheduled'
+    if target == 'web' and action in ('restart', 'stop'):
+        if CONTROL_MODE == 'supervisor':
+            quoted_cmd = ' '.join(shlex.quote(part) for part in build_supervisorctl_command(action, service))
+            schedule_background_command(quoted_cmd, log_path='/tmp/cliproxyapi-web-control.log')
         else:
-            code, output = supervisorctl(action, service)
+            quoted_cmd = ' '.join(shlex.quote(part) for part in ['systemctl', action, service])
+            schedule_background_command(quoted_cmd, log_path='/tmp/cliproxyapi-web-control.log')
+        code, output = 0, f'web {action} scheduled'
+    elif CONTROL_MODE == 'supervisor':
+        code, output = supervisorctl(action, service)
     else:
         code, output = systemctl(action, service)
 
