@@ -6,10 +6,9 @@ const state = {
 };
 
 const $ = (selector) => document.querySelector(selector);
-const BASE_PATH = window.location.pathname.replace(/\/?$/, '').replace(/\/(app\.js|styles\.css)$/,'') || '/CLIProxyAPI-cleaner';
 
 async function api(path, options = {}) {
-  const res = await fetch(`${BASE_PATH}${path}`, {
+  const res = await fetch(path, {
     credentials: 'same-origin',
     headers: {
       ...(options.body && !options.form ? {'Content-Type': 'application/json'} : {}),
@@ -80,7 +79,7 @@ function closeReportModal() {
 
 async function viewReport(name) {
   try {
-    const data = await api(`/api/report?name=${encodeURIComponent(name)}`);
+    const data = await api(`/CLIProxyAPI-cleaner/api/report?name=${encodeURIComponent(name)}`);
     openReportModal(name, data.data?.summary || {});
   } catch (err) {
     setMessage($('#actionMsg'), `打开报告失败：${err.message}`);
@@ -165,7 +164,7 @@ function renderStatus(data) {
 
 async function refreshStatus(silent = false) {
   try {
-    const data = await api('/api/status');
+    const data = await api('/CLIProxyAPI-cleaner/api/status');
     renderStatus(data.data);
     if (!silent) setMessage($('#actionMsg'), '状态已刷新', true);
   } catch (err) {
@@ -186,7 +185,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
   const body = new URLSearchParams();
   body.set('password', fd.get('password') || '');
   try {
-    await api('/api/login', { method: 'POST', body, form: true });
+    await api('/CLIProxyAPI-cleaner/api/login', { method: 'POST', body, form: true });
     setMessage($('#loginMsg'), '登录成功', true);
     e.target.reset();
     await refreshStatus(true);
@@ -196,7 +195,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
 });
 
 $('#logoutBtn').addEventListener('click', async () => {
-  try { await api('/api/logout', { method: 'POST', body: {} }); } catch (_) {}
+  try { await api('/CLIProxyAPI-cleaner/api/logout', { method: 'POST', body: {} }); } catch (_) {}
   state.loggedIn = false;
   $('#loginCard').classList.remove('hidden');
   $('#app').classList.add('hidden');
@@ -227,7 +226,7 @@ $('#configForm').addEventListener('submit', async (e) => {
     revival_probe_interval_hours: Number(form.revival_probe_interval_hours.value),
   };
   try {
-    const data = await api('/api/config/save', { method: 'POST', body: payload });
+    const data = await api('/CLIProxyAPI-cleaner/api/config/save', { method: 'POST', body: payload });
     setMessage($('#configMsg'), data.message || '配置已保存', true);
     form.management_key.value = '';
     form.console_password.value = '';
@@ -242,7 +241,7 @@ document.querySelectorAll('[data-action]').forEach((btn) => {
     const action = btn.dataset.action;
     const target = btn.dataset.target;
     try {
-      const data = await api(`/api/service/${action}`, { method: 'POST', body: { target } });
+      const data = await api(`/CLIProxyAPI-cleaner/api/service/${action}`, { method: 'POST', body: { target } });
       renderStatus(data.data);
       setMessage($('#actionMsg'), `${target} ${action} 成功`, true);
     } catch (err) {
@@ -253,7 +252,7 @@ document.querySelectorAll('[data-action]').forEach((btn) => {
 
 $('#runOnceBtn').addEventListener('click', async () => {
   try {
-    const data = await api('/api/run-once', { method: 'POST', body: {} });
+    const data = await api('/CLIProxyAPI-cleaner/api/run-once', { method: 'POST', body: {} });
     setMessage($('#actionMsg'), data.message, true);
     $('#cleanerLog').textContent = data.output || '(无输出)';
   } catch (err) {

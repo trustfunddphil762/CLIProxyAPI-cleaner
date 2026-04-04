@@ -8,27 +8,28 @@ import shlex
 import subprocess
 import time
 from collections import deque
-from http import cookies
 from pathlib import Path
 from urllib.parse import parse_qs, unquote
 from wsgiref.simple_server import make_server
+from http import cookies
 
 from common import (
+    APP_DIR,
     STATIC_DIR,
     CLEANER_LOG_PATH,
     WEB_LOG_PATH,
     REPORT_DIR,
     COOKIE_NAME,
+    COOKIE_PATH,
     PASSWORD_PBKDF2_ITERATIONS,
     CLEANER_SERVICE,
     WEB_SERVICE,
     CONTROL_MODE,
+    SUPERVISORCTL_BIN,
     SUPERVISOR_CLEANER_NAME,
     SUPERVISOR_WEB_NAME,
     build_cleaner_command,
-    build_supervisorctl_command,
     ensure_app_dirs,
-    is_console_password_configured,
     load_config,
     save_config,
     sanitize_config_for_ui,
@@ -41,7 +42,6 @@ LOG_TAIL_LINES = 200
 MAX_FAILED_ATTEMPTS = 8
 FAILED_WINDOW_SECONDS = 10 * 60
 LOCKOUT_SECONDS = 15 * 60
-KNOWN_BASE_PATHS = ('/CLIProxyAPI-cleaner', '/proxy-cleaner')
 
 FAILED_LOGIN = deque()
 SESSIONS: dict[str, dict] = {}
@@ -97,7 +97,7 @@ def record_failed_login(ip: str) -> None:
 
 
 def create_session(ip: str) -> str:
-    token = os.urandom(24).hex()
+    token = __import__('os').urandom(24).hex()
     SESSIONS[token] = {'ip': ip, 'created_at': now_ts(), 'expires_at': now_ts() + SESSION_TTL_SECONDS}
     return token
 
@@ -162,16 +162,6 @@ def text_response(start_response, text: str, status: str = '200 OK', content_typ
     return [body]
 
 
-def redirect_response(start_response, location: str):
-    body = b''
-    start_response('302 Found', [
-        ('Location', location),
-        ('Content-Length', '0'),
-        ('Cache-Control', 'no-store'),
-    ])
-    return [body]
-
-
 def parse_json_body(environ: dict) -> dict:
     try:
         length = int(environ.get('CONTENT_LENGTH') or '0')
@@ -221,15 +211,7 @@ def systemctl(*args: str) -> tuple[int, str]:
 
 
 def supervisorctl(*args: str) -> tuple[int, str]:
-    return run_command(build_supervisorctl_command(*args))
-
-
-def schedule_background_command(cmd: str, *, log_path: str) -> None:
-    subprocess.Popen(
-        ['sh', '-lc', f'sleep 1; {cmd} >>{shlex.quote(log_path)} 2>&1'],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    return run_command([SUPERVISORCTL_BIN, *args])
 
 
 def control_target_name(target: str) -> str:
@@ -238,21 +220,6 @@ def control_target_name(target: str) -> str:
     if target == 'web':
         return SUPERVISOR_WEB_NAME if CONTROL_MODE == 'supervisor' else WEB_SERVICE
     raise AppError('bad_target', '不支持的服务目标')
-
-
-def resolve_base_path(path: str) -> tuple[str | None, str]:
-    for base in KNOWN_BASE_PATHS:
-        if path == base:
-            return base, ''
-        if path == f'{base}/':
-            return base, '/'
-        if path.startswith(f'{base}/'):
-            return base, path[len(base):]
-    return None, path
-
-
-def cookie_path_for(base_path: str) -> str:
-    return f'{base_path}/'
 
 
 def read_tail(path: Path, limit_lines: int = LOG_TAIL_LINES) -> str:
@@ -364,7 +331,7 @@ def build_status_payload() -> dict:
     }
 
 
-def handle_login(environ, start_response, base_path: str):
+def handle_login(environ, start_response):
     if environ.get('REQUEST_METHOD') != 'POST':
         raise AppError('method_not_allowed', '方法不允许', '405 Method Not Allowed')
     ip = client_ip(environ)
@@ -373,8 +340,6 @@ def handle_login(environ, start_response, base_path: str):
     body = parse_form_body(environ)
     password = body.get('password', '')
     config = load_config()
-    if not is_console_password_configured(config):
-        raise AppError('password_not_configured', '控制台密码尚未配置，请先写入 password_salt / password_hash 或在面板中设置新密码', '503 Service Unavailable')
     actual = pbkdf2_hex(password, config['password_salt'])
     if not secure_compare(actual, config['password_hash']):
         record_failed_login(ip)
@@ -386,12 +351,12 @@ def handle_login(environ, start_response, base_path: str):
     cookie[COOKIE_NAME]['httponly'] = True
     cookie[COOKIE_NAME]['secure'] = COOKIE_SECURE
     cookie[COOKIE_NAME]['samesite'] = 'Strict'
-    cookie[COOKIE_NAME]['path'] = cookie_path_for(base_path)
+    cookie[COOKIE_NAME]['path'] = COOKIE_PATH
     cookie[COOKIE_NAME]['max-age'] = str(SESSION_TTL_SECONDS)
     return json_response(start_response, {'ok': True}, headers=[('Set-Cookie', cookie.output(header='').strip())])
 
 
-def handle_logout(environ, start_response, base_path: str):
+def handle_logout(environ, start_response):
     token, _ = get_session(environ)
     if token:
         SESSIONS.pop(token, None)
@@ -400,7 +365,7 @@ def handle_logout(environ, start_response, base_path: str):
     cookie[COOKIE_NAME]['httponly'] = True
     cookie[COOKIE_NAME]['secure'] = COOKIE_SECURE
     cookie[COOKIE_NAME]['samesite'] = 'Strict'
-    cookie[COOKIE_NAME]['path'] = cookie_path_for(base_path)
+    cookie[COOKIE_NAME]['path'] = COOKIE_PATH
     cookie[COOKIE_NAME]['max-age'] = '0'
     return json_response(start_response, {'ok': True}, headers=[('Set-Cookie', cookie.output(header='').strip())])
 
@@ -440,16 +405,13 @@ def handle_service_action(environ, start_response, action: str):
     if action not in ('start', 'stop', 'restart'):
         raise AppError('bad_action', '不支持的动作')
 
-    if target == 'web' and action in ('restart', 'stop'):
-        if CONTROL_MODE == 'supervisor':
-            quoted_cmd = ' '.join(shlex.quote(part) for part in build_supervisorctl_command(action, service))
-            schedule_background_command(quoted_cmd, log_path='/tmp/cliproxyapi-web-control.log')
+    if CONTROL_MODE == 'supervisor':
+        if target == 'web' and action == 'restart':
+            cmd = f"sleep 1; {shlex.quote(SUPERVISORCTL_BIN)} restart {shlex.quote(service)} >/tmp/cliproxyapi-web-restart.log 2>&1"
+            subprocess.Popen(['sh', '-lc', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            code, output = 0, 'web restart scheduled'
         else:
-            quoted_cmd = ' '.join(shlex.quote(part) for part in ['systemctl', action, service])
-            schedule_background_command(quoted_cmd, log_path='/tmp/cliproxyapi-web-control.log')
-        code, output = 0, f'web {action} scheduled'
-    elif CONTROL_MODE == 'supervisor':
-        code, output = supervisorctl(action, service)
+            code, output = supervisorctl(action, service)
     else:
         code, output = systemctl(action, service)
 
@@ -485,39 +447,33 @@ def application(environ, start_response):
     if host and '*' not in allowed_hosts and host not in allowed_hosts:
         return json_response(start_response, {'ok': False, 'error': 'forbidden_host'}, status='403 Forbidden')
 
-    base_path, subpath = resolve_base_path(path)
-    if base_path is None:
-        return json_response(start_response, {'ok': False, 'error': 'not_found'}, status='404 Not Found')
-
     try:
-        if subpath == '':
-            return redirect_response(start_response, f'{base_path}/')
-        if subpath == '/':
+        if path in ('/CLIProxyAPI-cleaner', '/CLIProxyAPI-cleaner/'):
             html, content_type = load_static('index.html', 'text/html; charset=utf-8')
             return text_response(start_response, html, content_type=content_type)
-        if subpath == '/app.js':
+        if path == '/CLIProxyAPI-cleaner/app.js':
             js, content_type = load_static('app.js', 'application/javascript; charset=utf-8')
             return text_response(start_response, js, content_type=content_type)
-        if subpath == '/styles.css':
+        if path == '/CLIProxyAPI-cleaner/styles.css':
             css, content_type = load_static('styles.css', 'text/css; charset=utf-8')
             return text_response(start_response, css, content_type=content_type)
-        if subpath == '/api/login':
-            return handle_login(environ, start_response, base_path)
-        if subpath == '/api/logout':
-            return handle_logout(environ, start_response, base_path)
-        if subpath == '/api/status':
+        if path == '/CLIProxyAPI-cleaner/api/login':
+            return handle_login(environ, start_response)
+        if path == '/CLIProxyAPI-cleaner/api/logout':
+            return handle_logout(environ, start_response)
+        if path == '/CLIProxyAPI-cleaner/api/status':
             return handle_status(environ, start_response)
-        if subpath == '/api/report':
+        if path == '/CLIProxyAPI-cleaner/api/report':
             return handle_report_detail(environ, start_response)
-        if subpath == '/api/config/save':
+        if path == '/CLIProxyAPI-cleaner/api/config/save':
             return handle_save_config(environ, start_response)
-        if subpath == '/api/service/start':
+        if path == '/CLIProxyAPI-cleaner/api/service/start':
             return handle_service_action(environ, start_response, 'start')
-        if subpath == '/api/service/stop':
+        if path == '/CLIProxyAPI-cleaner/api/service/stop':
             return handle_service_action(environ, start_response, 'stop')
-        if subpath == '/api/service/restart':
+        if path == '/CLIProxyAPI-cleaner/api/service/restart':
             return handle_service_action(environ, start_response, 'restart')
-        if subpath == '/api/run-once':
+        if path == '/CLIProxyAPI-cleaner/api/run-once':
             return handle_run_once(environ, start_response)
         return json_response(start_response, {'ok': False, 'error': 'not_found'}, status='404 Not Found')
     except AppError as e:
