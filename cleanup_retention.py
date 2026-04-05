@@ -80,12 +80,19 @@ def file_age_exceeded(path: Path, *, now_ts: float, max_age_days: int) -> bool:
         return False
 
 
+def safe_mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except FileNotFoundError:
+        return -1.0
+
+
 def prune_reports(report_dir: Path, *, keep_reports: int, max_age_days: int, now_ts: float) -> tuple[int, int]:
     if not report_dir.exists():
         return 0, 0
     removed = 0
     freed_bytes = 0
-    files = sorted(report_dir.glob('report-*.json'), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(report_dir.glob('report-*.json'), key=safe_mtime, reverse=True)
     for index, path in enumerate(files):
         delete_for_count = index >= keep_reports
         delete_for_age = file_age_exceeded(path, now_ts=now_ts, max_age_days=max_age_days)
