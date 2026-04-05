@@ -283,6 +283,7 @@ systemctl daemon-reload
 - `docker/supervisord.conf`
 - `docker/entrypoint.sh`
 - `docker/run_cleaner.sh`
+- `.github/workflows/docker-publish.yml`（推送到 GitHub 后自动发布 Docker Hub 镜像）
 
 容器方案里：
 
@@ -291,12 +292,25 @@ systemctl daemon-reload
 - Web 控制台里的“启动 / 停止 / 重启 cleaner”在 Docker 模式下会自动改走 `supervisorctl`
 - 默认把配置、日志、报告、备份都放到挂载目录 `./docker-data`
 
-### 快速开始
+### 快速开始（默认走 Docker Hub 镜像）
 
 ```bash
 git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
 cd CLIProxyAPI-cleaner
-docker compose up -d --build
+docker compose pull
+docker compose up -d
+```
+
+默认会拉取：
+
+```text
+docker.io/KJ20051223/cliproxyapi-cleaner:latest
+```
+
+如果你想改成自己的镜像地址，可以在启动前设置：
+
+```bash
+export CLIPROXY_IMAGE=docker.io/你的DockerHub用户名/cliproxyapi-cleaner:latest
 ```
 
 首次启动后，会自动在 `./docker-data/web_config.json` 生成一份配置模板。
@@ -316,14 +330,39 @@ docker compose up -d --build
 # 启动
 docker compose up -d
 
+# 先拉最新镜像再启动
+docker compose pull && docker compose up -d
+
 # 查看日志
 docker compose logs -f
 
 # 停止
 docker compose down
+```
 
-# 升级后重建
-docker compose up -d --build
+### Docker Hub 自动发布
+
+仓库已经包含 GitHub Actions 工作流：`.github/workflows/docker-publish.yml`。
+
+你只需要在 GitHub 仓库里补两个 **Actions Secrets**：
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+可选再补一个 **Actions Variable**：
+
+- `DOCKERHUB_IMAGE`
+  - 例如：`docker.io/KJ20051223/cliproxyapi-cleaner`
+
+默认规则：
+
+- push 到 `main` → 自动推送 `latest`、`main`、`sha-*`
+- push tag（如 `v1.0.0`）→ 自动推送版本标签
+
+如果不填 `DOCKERHUB_IMAGE`，workflow 会默认使用：
+
+```text
+docker.io/<DOCKERHUB_USERNAME>/cliproxyapi-cleaner
 ```
 
 ### 默认数据目录

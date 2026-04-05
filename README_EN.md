@@ -195,6 +195,7 @@ If you do not want to manage systemd manually, the repository now includes a rea
 - `docker/supervisord.conf`
 - `docker/entrypoint.sh`
 - `docker/run_cleaner.sh`
+- `.github/workflows/docker-publish.yml` (auto-publishes Docker Hub images after GitHub pushes)
 
 In Docker mode:
 
@@ -203,12 +204,25 @@ In Docker mode:
 - dashboard start / stop / restart actions automatically use `supervisorctl` instead of `systemctl`
 - config, logs, reports, and backups are persisted under `./docker-data`
 
-### Quick start
+### Quick start (pull from Docker Hub by default)
 
 ```bash
 git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
 cd CLIProxyAPI-cleaner
-docker compose up -d --build
+docker compose pull
+docker compose up -d
+```
+
+Default image:
+
+```text
+docker.io/KJ20051223/cliproxyapi-cleaner:latest
+```
+
+If you want to use your own image instead, set this before startup:
+
+```bash
+export CLIPROXY_IMAGE=docker.io/your-dockerhub-user/cliproxyapi-cleaner:latest
 ```
 
 On first boot, a default `./docker-data/web_config.json` will be created automatically.
@@ -228,14 +242,39 @@ Then restart the container or just start the cleaner from the dashboard.
 # start
 docker compose up -d
 
+# pull the newest image and restart
+docker compose pull && docker compose up -d
+
 # logs
 docker compose logs -f
 
 # stop
 docker compose down
+```
 
-# rebuild after updates
-docker compose up -d --build
+### Docker Hub auto-publish
+
+The repository now includes a GitHub Actions workflow: `.github/workflows/docker-publish.yml`.
+
+You only need to add these **Actions Secrets** in GitHub:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+Optionally add this **Actions Variable**:
+
+- `DOCKERHUB_IMAGE`
+  - for example: `docker.io/KJ20051223/cliproxyapi-cleaner`
+
+Default behavior:
+
+- push to `main` -> publish `latest`, `main`, and `sha-*`
+- push a tag (for example `v1.0.0`) -> publish version tags
+
+If `DOCKERHUB_IMAGE` is not set, the workflow defaults to:
+
+```text
+docker.io/<DOCKERHUB_USERNAME>/cliproxyapi-cleaner
 ```
 
 ### Default data directory
