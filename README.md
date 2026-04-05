@@ -340,30 +340,33 @@ docker compose logs -f
 docker compose down
 ```
 
-### Docker Hub 自动发布
+### Docker Hub 镜像
 
-仓库已经包含 GitHub Actions 工作流：`.github/workflows/docker-publish.yml`。
+项目镜像已经发布到 Docker Hub，普通使用直接拉这个就行：
 
-你只需要在 GitHub 仓库里补两个 **Actions Secrets**：
+```text
+docker.io/kxmjj/cliproxyapi-cleaner:latest
+```
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+默认 `docker-compose.yml` 也已经配置成优先拉这个镜像。
+如果你只是部署使用，到这里就够了，不需要关心镜像是怎么自动发布的。
 
-可选再补一个 **Actions Variable**：
+### 给维护者看的：自动发布说明
 
-- `DOCKERHUB_IMAGE`
-  - 例如：`docker.io/KJ20051223/cliproxyapi-cleaner`
+仓库里带了 GitHub Actions 工作流：`.github/workflows/docker-publish.yml`。
 
-默认规则：
+维护仓库时：
 
 - push 到 `main` → 自动推送 `latest`、`main`、`sha-*`
 - push tag（如 `v1.0.0`）→ 自动推送版本标签
 
-如果不填 `DOCKERHUB_IMAGE`，workflow 会默认使用：
+如果你以后换 Docker Hub 仓库，可以通过：
 
-```text
-docker.io/<DOCKERHUB_USERNAME>/cliproxyapi-cleaner
-```
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+- `DOCKERHUB_IMAGE`（可选）
+
+来调整发布目标。
 
 ### 默认数据目录
 

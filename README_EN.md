@@ -252,30 +252,31 @@ docker compose logs -f
 docker compose down
 ```
 
-### Docker Hub auto-publish
+### Docker Hub image
 
-The repository now includes a GitHub Actions workflow: `.github/workflows/docker-publish.yml`.
+The image is already published to Docker Hub. For normal users, just pull and run this image:
 
-You only need to add these **Actions Secrets** in GitHub:
+```text
+docker.io/kxmjj/cliproxyapi-cleaner:latest
+```
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+The default `docker-compose.yml` already points to this image.
+If you only want to deploy it, you do not need to care about the auto-publish details.
 
-Optionally add this **Actions Variable**:
+### Maintainer note: auto-publish
 
-- `DOCKERHUB_IMAGE`
-  - for example: `docker.io/kxmjj/cliproxyapi-cleaner`
+The repository includes a GitHub Actions workflow: `.github/workflows/docker-publish.yml`.
 
-Default behavior:
+For repository maintenance:
 
 - push to `main` -> publish `latest`, `main`, and `sha-*`
 - push a tag (for example `v1.0.0`) -> publish version tags
 
-If `DOCKERHUB_IMAGE` is not set, the workflow defaults to:
+If you want to change the Docker Hub target later, use:
 
-```text
-docker.io/<DOCKERHUB_USERNAME>/cliproxyapi-cleaner
-```
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+- `DOCKERHUB_IMAGE` (optional)
 
 ### Default data directory
 
