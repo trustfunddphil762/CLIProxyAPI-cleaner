@@ -297,24 +297,27 @@ systemctl daemon-reload
 ```bash
 git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
 cd CLIProxyAPI-cleaner
-docker compose pull
-docker compose up -d
+### 快速开始（Docker Hub 镜像）
+
+```bash
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
+docker compose pull && docker compose up -d
 ```
 
-默认会拉取：
+默认镜像：
 
 ```text
 docker.io/kxmjj/cliproxyapi-cleaner:latest
 ```
 
-如果你想改成自己的镜像地址，可以在启动前设置：
+如果你要改成自己的镜像地址：
 
 ```bash
 export CLIPROXY_IMAGE=docker.io/你的DockerHub用户名/cliproxyapi-cleaner:latest
 ```
 
-首次启动后，会自动在 `./docker-data/web_config.json` 生成一份配置模板。
-你只需要把里面这些值改成你自己的：
+首次启动后会自动生成 `./docker-data/web_config.json`，把下面这些值改成你自己的即可：
 
 - `base_url`
 - `management_key`
@@ -322,34 +325,19 @@ export CLIPROXY_IMAGE=docker.io/你的DockerHub用户名/cliproxyapi-cleaner:lat
 - `password_salt`
 - `password_hash`
 
-改完后重新拉起容器，或者在页面里直接点启动 cleaner 即可。
-
-### 常用命令
-
-```bash
-# 启动
-docker compose up -d
-
-# 先拉最新镜像再启动
-docker compose pull && docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 停止
-docker compose down
-```
-
-### Docker Hub 镜像
-
-项目镜像已经发布到 Docker Hub，普通使用直接拉这个就行：
+访问地址：
 
 ```text
-docker.io/kxmjj/cliproxyapi-cleaner:latest
+http://你的服务器IP:28717/CLIProxyAPI-cleaner/
 ```
 
-默认 `docker-compose.yml` 也已经配置成优先拉这个镜像。
-如果你只是部署使用，到这里就够了，不需要关心镜像是怎么自动发布的。
+常用命令：
+
+```bash
+docker compose pull && docker compose up -d
+docker compose logs -f
+docker compose down
+```
 
 ### 默认数据目录
 

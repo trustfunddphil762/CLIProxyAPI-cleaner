@@ -204,13 +204,12 @@ In Docker mode:
 - dashboard start / stop / restart actions automatically use `supervisorctl` instead of `systemctl`
 - config, logs, reports, and backups are persisted under `./docker-data`
 
-### Quick start (pull from Docker Hub by default)
+### Quick start (Docker Hub image)
 
 ```bash
 git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
 cd CLIProxyAPI-cleaner
-docker compose pull
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 Default image:
@@ -219,14 +218,13 @@ Default image:
 docker.io/kxmjj/cliproxyapi-cleaner:latest
 ```
 
-If you want to use your own image instead, set this before startup:
+If you want to use your own image instead:
 
 ```bash
 export CLIPROXY_IMAGE=docker.io/your-dockerhub-user/cliproxyapi-cleaner:latest
 ```
 
-On first boot, a default `./docker-data/web_config.json` will be created automatically.
-You should edit at least these values:
+On first boot, `./docker-data/web_config.json` will be created automatically. Update these values:
 
 - `base_url`
 - `management_key`
@@ -234,34 +232,19 @@ You should edit at least these values:
 - `password_salt`
 - `password_hash`
 
-Then restart the container or just start the cleaner from the dashboard.
-
-### Common commands
-
-```bash
-# start
-docker compose up -d
-
-# pull the newest image and restart
-docker compose pull && docker compose up -d
-
-# logs
-docker compose logs -f
-
-# stop
-docker compose down
-```
-
-### Docker Hub image
-
-The image is already published to Docker Hub. For normal users, just pull and run this image:
+Access URL:
 
 ```text
-docker.io/kxmjj/cliproxyapi-cleaner:latest
+http://your-server-ip:28717/CLIProxyAPI-cleaner/
 ```
 
-The default `docker-compose.yml` already points to this image.
-If you only want to deploy it, you do not need to care about the auto-publish details.
+Common commands:
+
+```bash
+docker compose pull && docker compose up -d
+docker compose logs -f
+docker compose down
+```
 
 ### Default data directory
 
