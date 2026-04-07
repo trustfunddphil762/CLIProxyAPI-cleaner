@@ -15,6 +15,7 @@
 - `cleanup_retention.py`：独立的文件保留清理脚本，负责清理旧报告/备份并裁剪日志
 - `run_retention.sh`：读取 `web_config.json` 中的保留参数，再启动 retention 清理脚本
 - `manager.sh`：交互式安装 / 卸载脚本（systemd + 裸机场景）
+- `MANAGER.md`：推荐的 systemd 安装说明，适合直接照着部署
 - `CLIProxyAPI-cleaner.service`：后台清理服务
 - `CLIProxyAPI-cleaner-web.service`：控制台服务
 - `CLIProxyAPI-cleaner-retention.service` / `.timer`：定时文件清理服务与定时器
@@ -56,6 +57,7 @@
 ├── cleanup_retention.py
 ├── run_retention.sh
 ├── manager.sh
+├── MANAGER.md
 ├── CLIProxyAPI-cleaner.service
 ├── CLIProxyAPI-cleaner-web.service
 ├── CLIProxyAPI-cleaner-retention.service
@@ -85,9 +87,29 @@
 
 # 详细部署说明
 
-## 1）获取代码
+## Systemd 安装（推荐）
 
-你可以直接 clone：
+如果你准备把项目部署在 **Linux 宿主机 + systemd** 上，推荐直接使用仓库自带的交互式安装脚本：
+
+```bash
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
+chmod +x manager.sh
+sudo ./manager.sh install
+```
+
+这会自动完成：
+
+- 复制文件到 `/opt/CLIProxyAPI-cleaner`
+- 生成 `web_config.json`
+- 根据你的选择设置 HTTP / HTTPS 对应的 `CLIPROXY_COOKIE_SECURE`
+- 安装并启动 cleaner / web / retention timer
+
+详细说明请直接看：[`MANAGER.md`](MANAGER.md)
+
+## Systemd 手动安装（高级 / 自定义场景）
+
+## 1）获取代码
 
 ```bash
 git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
@@ -371,29 +393,16 @@ CLIPROXY_COOKIE_SECURE: "true"
 
 ## manager.sh（交互式安装脚本）
 
-如果你就是想在 **systemd + 裸机** 上快速部署，现在仓库里提供了一个更稳的 `manager.sh`：
+对于 **systemd + 裸机** 场景，`manager.sh` 现在是 README 推荐的默认安装方法。
+
+快速用法：
 
 ```bash
 chmod +x manager.sh
 sudo ./manager.sh install
 ```
 
-它会做这些事：
-
-- 复制当前仓库到 `/opt/CLIProxyAPI-cleaner`
-- 交互式询问 `base_url`、`management_key`、控制台密码
-- 让你选择是 **反代/HTTPS** 模式，还是 **局域网直连 HTTP** 模式
-- 生成 `web_config.json`
-- 通过 systemd override 写入 `CLIPROXY_COOKIE_SECURE=true/false`
-- 安装并启动 cleaner / web / retention timer
-
-它**不会**再像旧 PR 那样直接 `sed` 改 `app.py` 源码，所以升级时不会反复打架。
-
-卸载：
-
-```bash
-sudo ./manager.sh uninstall
-```
+完整说明见：[`MANAGER.md`](MANAGER.md)
 
 ---
 

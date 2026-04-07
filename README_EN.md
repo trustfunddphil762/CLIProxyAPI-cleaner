@@ -15,6 +15,7 @@ The repository homepage defaults to Chinese. If you prefer Chinese, use the link
 - `cleanup_retention.py`: standalone retention cleanup for old reports/backups and oversized logs
 - `run_retention.sh`: reads retention settings from `web_config.json` and launches retention cleanup
 - `manager.sh`: interactive install / uninstall helper for systemd + bare-metal deployments
+- `MANAGER.md`: focused guide for the recommended systemd installation path
 - `CLIProxyAPI-cleaner.service`: background cleaner service
 - `CLIProxyAPI-cleaner-web.service`: web console service
 - `CLIProxyAPI-cleaner-retention.service` / `.timer`: periodic artifact cleanup service and timer
@@ -46,6 +47,28 @@ In this repository, account-related examples and detection descriptions are writ
 - Network access to your upstream API and management endpoint
 
 ## Deployment (Detailed)
+
+### Recommended systemd installation
+
+If you are deploying on a **Linux host with systemd**, the recommended path is now the interactive installer:
+
+```bash
+git clone https://github.com/KJ20051223/CLIProxyAPI-cleaner.git
+cd CLIProxyAPI-cleaner
+chmod +x manager.sh
+sudo ./manager.sh install
+```
+
+This will automatically:
+
+- copy files into `/opt/CLIProxyAPI-cleaner`
+- generate `web_config.json`
+- set `CLIPROXY_COOKIE_SECURE` for HTTP / HTTPS according to your selection
+- install and start cleaner / web / retention timer
+
+For the full step-by-step guide, see [`MANAGER.md`](MANAGER.md).
+
+### Manual systemd installation (advanced / custom setups)
 
 ### 1. Get the code
 
