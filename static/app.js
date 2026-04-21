@@ -30,6 +30,36 @@ function setMessage(el, text, ok = false) {
   el.style.color = ok ? 'var(--success)' : 'var(--warning)';
 }
 
+function markConfigFormDirty() {
+  const form = $('#configForm');
+  if (form) form.dataset.dirty = '1';
+}
+
+function isConfigFormDirty() {
+  const form = $('#configForm');
+  return !!(form && form.dataset && form.dataset.dirty === '1');
+}
+
+function clearConfigFormDirty() {
+  const form = $('#configForm');
+  if (form) form.dataset.dirty = '0';
+}
+
+function syncConfigForm(cfg = {}) {
+  const form = $('#configForm');
+  if (!form || isConfigFormDirty()) return;
+
+  Object.entries(cfg).forEach(([key, value]) => {
+    const el = form.elements.namedItem(key);
+    if (!el) return;
+    if (el.type === 'checkbox') {
+      el.checked = !!value;
+    } else {
+      el.value = value ?? '';
+    }
+  });
+}
+
 function servicePill(label, active, desc = '') {
   const cls = String(active || 'unknown').toLowerCase();
   return `
@@ -52,7 +82,7 @@ function formatSize(bytes) {
 
 function buildSummaryLines(summary = {}) {
   return [
-    { icon: '🧹', text: `已删除 ${summary.deleted_401 || 0} 个 401 认证失败账号` },
+    { icon: '🛹', text: `已删除 ${summary.deleted_401 || 0} 个 401 认证失败账号` },
     { icon: '🚫', text: `已禁用 ${summary.disabled_quota || 0} 个额度耗尽账号` },
     { icon: '✨', text: `复活成功启用 ${summary.revived_enabled || 0} 个账号` },
   ];
@@ -97,7 +127,7 @@ function buildReportItem(item) {
       </div>
       <div class="report-inline-summary">
         <span class="mini-pill">401 删除 ${summary.deleted_401 || 0}</span>
-        <span class="mini-pill">限额禁用 ${summary.disabled_quota || 0}</span>
+        <span class="mini-pill">额度禁用 ${summary.disabled_quota || 0}</span>
         <span class="mini-pill">复活 ${summary.revived_enabled || 0}</span>
       </div>
     </button>
@@ -137,8 +167,8 @@ function renderStatus(data) {
   $('#logoutBtn').classList.remove('hidden');
 
   $('#serviceStatus').innerHTML = [
-    servicePill('清理器服务', data.cleaner_service?.active, '负责账号检测、禁用、复活、删除'),
-    servicePill('控制台服务', data.web_service?.active, '负责当前可视化控制页面'),
+    servicePill('清理器服务', data.cleaner_service?.active, '负责账户检测、禁用、删除、复活'),
+    servicePill('控制台服务', data.web_service?.active, '负责当前可视化控制面板'),
   ].join('');
 
   $('#cleanerActive').textContent = String(data.cleaner_service?.active || '-');
@@ -150,16 +180,7 @@ function renderStatus(data) {
   applyAutoRefresh(data.auto_refresh_seconds || 8);
 
   const cfg = data.config || {};
-  const form = $('#configForm');
-  Object.entries(cfg).forEach(([key, value]) => {
-    const el = form.elements.namedItem(key);
-    if (!el) return;
-    if (el.type === 'checkbox') {
-      el.checked = !!value;
-    } else {
-      el.value = value ?? '';
-    }
-  });
+  syncConfigForm(cfg);
 }
 
 async function refreshStatus(silent = false) {
@@ -189,6 +210,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
     setMessage($('#loginMsg'), '登录成功', true);
     e.target.reset();
     await refreshStatus(true);
+    clearConfigFormDirty();
   } catch (err) {
     setMessage($('#loginMsg'), err.message);
   }
@@ -204,7 +226,9 @@ $('#logoutBtn').addEventListener('click', async () => {
   setMessage($('#loginMsg'), '已退出');
 });
 
-$('#configForm').addEventListener('submit', async (e) => {
+const configForm = $('#configForm');
+configForm.addEventListener('input', markConfigFormDirty);
+configForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
   const payload = {
@@ -234,6 +258,7 @@ $('#configForm').addEventListener('submit', async (e) => {
     setMessage($('#configMsg'), data.message || '配置已保存', true);
     form.management_key.value = '';
     form.console_password.value = '';
+    clearConfigFormDirty();
     await refreshStatus(true);
   } catch (err) {
     setMessage($('#configMsg'), err.message);
